@@ -68,8 +68,8 @@ print("Testing samples:", X_test.shape)
 
 print("Step 6: Building LSTM model...")
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.models import Sequential # type: ignore
+from tensorflow.keras.layers import LSTM, Dense, Dropout # type: ignore
 
 model = Sequential()
 

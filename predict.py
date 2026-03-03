@@ -1,8 +1,8 @@
 import numpy as np
 import joblib
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model # type: ignore
 
-print("Loading model and scaler...")
+print ("Loading model and scaler...")
 model = load_model("aqi_lstm_model.h5", compile=False)
 scaler = joblib.load("scaler.save")
 
