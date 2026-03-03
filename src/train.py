@@ -1,11 +1,13 @@
+#-----AQI LSTM Model Training Script-----
 print("Step 1: Script is running")
 import pandas as pd
 
 print("Step 2: Loading dataset...")
 
+# Reading air quality dataset
 df = pd.read_csv("data/air_quality.csv")
 
-# Select only required features
+# Selecting only required features for prediction
 FEATURES = [
     'aqi_index',
     'temp_c',
@@ -16,6 +18,7 @@ FEATURES = [
     'pressure_mb'
 ]
 
+# Keeping only selected columns
 df = df[FEATURES]
 
 print("Selected features:")
@@ -24,11 +27,14 @@ print(df.head())
 print("Shape of dataset:")
 print(df.shape)
 
+#-----Data Scaling-----
+
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 
 print("Step 3: Scaling data...")
 
+# Scaling data between 0 and 1 for better LSTM performance
 scaler = MinMaxScaler()
 
 scaled_data = scaler.fit_transform(df)
@@ -37,12 +43,15 @@ print("Data scaled successfully.")
 print("First 3 scaled rows:")
 print(scaled_data[:3])
 
+#-----Creating Time Series Sequences-----
+
 print("Step 4: Creating sequences...")
 
 sequence_length = 24  # using past 24 hours
 X = []
 y = []
 
+# Creating sliding window sequences
 for i in range(sequence_length, len(scaled_data)):
     X.append(scaled_data[i-sequence_length:i])
     y.append(scaled_data[i][0])  # predicting AQI (first column)
@@ -54,6 +63,7 @@ print("Sequences created successfully.")
 print("Shape of X:", X.shape)
 print("Shape of y:", y.shape)
 
+#-----Train-Test Split-----
 print("Step 5: Splitting data...")
 
 split = int(0.8 * len(X))
@@ -66,6 +76,7 @@ y_test = y[split:]
 print("Training samples:", X_train.shape)
 print("Testing samples:", X_test.shape)
 
+#-----Building LSTM Model-----
 print("Step 6: Building LSTM model...")
 
 from tensorflow.keras.models import Sequential # type: ignore
@@ -86,6 +97,7 @@ model.compile(optimizer='adam', loss='mse')
 print("Model built successfully.")
 model.summary()
 
+#-----Training Model-----
 print("Step 7: Training model...")
 
 history = model.fit(
@@ -98,21 +110,23 @@ history = model.fit(
 
 print("Model training completed.")
 
+#-----Making Predictions-----
 print("Step 8: Making predictions...")
 
 predictions = model.predict(X_test)
 
 print("Predictions shape:", predictions.shape)
 
+#------Converting Back to Real AQI Values-----
 print("Step 9: Converting predictions back to real AQI values...")
 
-# Create dummy array with same number of features
+# Creating dummy array with same number of features
 dummy = np.zeros((len(predictions), scaled_data.shape[1]))
 dummy[:, 0] = predictions[:, 0]
 
 predicted_aqi = scaler.inverse_transform(dummy)[:, 0]
 
-# Same for actual values
+# Same process for actual values
 dummy_actual = np.zeros((len(y_test), scaled_data.shape[1]))
 dummy_actual[:, 0] = y_test
 
@@ -121,6 +135,7 @@ actual_aqi = scaler.inverse_transform(dummy_actual)[:, 0]
 print("First 5 Predicted AQI:", predicted_aqi[:5])
 print("First 5 Actual AQI:", actual_aqi[:5])
 
+#-----Model Evaluation-----
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import numpy as np
 
@@ -130,6 +145,7 @@ rmse = np.sqrt(mean_squared_error(actual_aqi, predicted_aqi))
 print("MAE:", mae)
 print("RMSE:", rmse)
 
+#-----Saving Model and Scaler-----
 print("Step 10: Saving model...")
 
 model.save("aqi_lstm_model.h5")
@@ -138,6 +154,7 @@ print("Model saved successfully.")
 
 import joblib
 
+# Saving scaler for future predictions in Streamlit app
 joblib.dump(scaler, "scaler.save")
 
 print("Scaler saved successfully.")
