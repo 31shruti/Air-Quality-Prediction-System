@@ -35,9 +35,10 @@ def load_models():
     lr_model = joblib.load("linear_model.pkl")
     rf_model = joblib.load("random_forest_model.pkl")
     scaler = joblib.load("scaler.save")
-    return lstm_model, lr_model, rf_model, scaler
+    metrics = joblib.load("model_metrics.pkl")   # ← ADD THIS LINE
+    return lstm_model, lr_model, rf_model, scaler, metrics
 
-lstm_model, lr_model, rf_model, scaler = load_models()
+lstm_model, lr_model, rf_model, scaler, metrics = load_models()
 
 # ---------------- Upload Section ----------------
 st.subheader("📂 Upload Last 24 Hours Data (CSV)")
@@ -113,6 +114,16 @@ if uploaded_file is not None:
 
         st.subheader("📊 Model Comparison")
         st.dataframe(results_df)
+
+        # ---------------- Model Performance Section ----------------
+        st.subheader("📉 Model Performance (Training RMSE)")
+
+        rmse_df = pd.DataFrame({
+        "Model": list(metrics.keys()),
+        "RMSE": list(metrics.values())
+         })
+
+        st.dataframe(rmse_df)
 
         # Highlight LSTM as primary model
         category = get_aqi_category(lstm_pred)

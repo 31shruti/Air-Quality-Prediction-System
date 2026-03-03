@@ -2,6 +2,8 @@
 print("Step 1: Script is running")
 import pandas as pd
 import joblib
+from sklearn.metrics import mean_squared_error
+import numpy as np
 
 print("Step 2: Loading dataset...")
 
@@ -288,3 +290,16 @@ results = pd.DataFrame({
 print("\n================ Final Model Comparison ================")
 print(results)
 print("========================================================")
+
+# ----- Saving Model Metrics for Streamlit -----
+
+metrics = {
+    "Linear Regression": rmse_lr,
+    "Random Forest": rmse_rf,
+    "LSTM": rmse
+}
+
+joblib.dump(metrics, "model_metrics.pkl")
+
+print("Model metrics saved successfully.")
+
