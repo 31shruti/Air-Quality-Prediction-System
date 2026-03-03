@@ -76,9 +76,93 @@ y_test = y[split:]
 print("Training samples:", X_train.shape)
 print("Testing samples:", X_test.shape)
 
+
+#-----Linear Regression Baseline Model-----
+
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+print("Step 6A: Training Linear Regression...")
+
+# Reshaped 3D sequence data to 2D for ML model
+X_train_flat = X_train.reshape(X_train.shape[0], -1)
+X_test_flat = X_test.reshape(X_test.shape[0], -1)
+
+# If multi-step output, take first value
+if len(y_train.shape) > 1:
+    y_train_flat = y_train[:, 0]
+    y_test_flat = y_test[:, 0]
+else:
+    y_train_flat = y_train
+    y_test_flat = y_test
+
+# Training Linear Regression
+lr = LinearRegression()
+lr.fit(X_train_flat, y_train_flat)
+
+# Predicting
+lr_pred = lr.predict(X_test_flat)
+
+# Converting predictions back to real AQI
+dummy_lr = np.zeros((len(lr_pred), scaled_data.shape[1]))
+dummy_lr[:, 0] = lr_pred
+
+lr_pred_real = scaler.inverse_transform(dummy_lr)[:, 0]
+
+# Converting actual values back
+dummy_actual_lr = np.zeros((len(y_test_flat), scaled_data.shape[1]))
+dummy_actual_lr[:, 0] = y_test_flat
+
+actual_real_lr = scaler.inverse_transform(dummy_actual_lr)[:, 0]
+
+# Evaluating
+mae_lr = mean_absolute_error(actual_real_lr, lr_pred_real)
+rmse_lr = np.sqrt(mean_squared_error(actual_real_lr, lr_pred_real))
+r2_lr = r2_score(actual_real_lr, lr_pred_real)
+
+print("\nLinear Regression Results:")
+print("MAE:", mae_lr)
+print("RMSE:", rmse_lr)
+print("R2 Score:", r2_lr)
+
 #-----Building LSTM Model-----
 print("Step 6: Building LSTM model...")
 
+#-----Random Forest Baseline Model-----
+
+
+from sklearn.ensemble import RandomForestRegressor
+
+print("Step 6B: Training Random Forest...")
+
+rf = RandomForestRegressor(n_estimators=30, random_state=42, n_jobs=-1)
+
+rf.fit(X_train_flat, y_train_flat)
+
+rf_pred = rf.predict(X_test_flat)
+
+# Convert predictions back to real AQI
+dummy_rf = np.zeros((len(rf_pred), scaled_data.shape[1]))
+dummy_rf[:, 0] = rf_pred
+
+rf_pred_real = scaler.inverse_transform(dummy_rf)[:, 0]
+
+# Convert actual values back
+dummy_actual_rf = np.zeros((len(y_test_flat), scaled_data.shape[1]))
+dummy_actual_rf[:, 0] = y_test_flat
+
+actual_real_rf = scaler.inverse_transform(dummy_actual_rf)[:, 0]
+
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+mae_rf = mean_absolute_error(actual_real_rf, rf_pred_real)
+rmse_rf = np.sqrt(mean_squared_error(actual_real_rf, rf_pred_real))
+r2_rf = r2_score(actual_real_rf, rf_pred_real)
+
+print("\nRandom Forest Results:")
+print("MAE:", mae_rf)
+print("RMSE:", rmse_rf)
+print("R2 Score:", r2_rf)
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import LSTM, Dense, Dropout # type: ignore
 
@@ -144,6 +228,11 @@ rmse = np.sqrt(mean_squared_error(actual_aqi, predicted_aqi))
 
 print("MAE:", mae)
 print("RMSE:", rmse)
+from sklearn.metrics import r2_score
+
+r2_lstm = r2_score(predicted_aqi, actual_aqi)
+
+print("R2 Score:", r2_lstm)
 
 #-----Saving Model and Scaler-----
 print("Step 10: Saving model...")
@@ -158,3 +247,4 @@ import joblib
 joblib.dump(scaler, "scaler.save")
 
 print("Scaler saved successfully.")
+
