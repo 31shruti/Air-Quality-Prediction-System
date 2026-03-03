@@ -1,12 +1,19 @@
-#Importing libraries
+# ---------------- AQI Forecasting Web App ----------------
+
 import streamlit as st # type: ignore
 import numpy as np
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
-from tensorflow.keras.models import load_model # type: ignore
+from tensorflow.keras.models import load_model  # type: ignore
 
-# Function to classify AQI into categories based on standard AQI ranges
+# ---------------- Page Config ----------------
+st.set_page_config(page_title="AQI Forecast System", layout="centered")
+
+st.title("🌍 AQI Forecasting System")
+st.markdown("Predict next-hour AQI using **LSTM, Random Forest, and Linear Regression** models.")
+
+# ---------------- AQI Category Function ----------------
 def get_aqi_category(aqi):
     if aqi <= 50:
         return "Good"
@@ -21,99 +28,139 @@ def get_aqi_category(aqi):
     else:
         return "Hazardous"
 
-# Setting page configuration for Streamlit app    
-st.set_page_config(page_title="AQI Forecast System", layout="centered")
+# ---------------- Load Models ----------------
+@st.cache_resource
+def load_models():
+    lstm_model = load_model("aqi_lstm_model.h5", compile=False)
+    lr_model = joblib.load("linear_model.pkl")
+    rf_model = joblib.load("random_forest_model.pkl")
+    scaler = joblib.load("scaler.save")
+    return lstm_model, lr_model, rf_model, scaler
 
-# Title of the project
-st.title("AQI Forecasting (Next Hour Prediction)")
-st.write("Upload last 24 hours air quality data (CSV file).")
+lstm_model, lr_model, rf_model, scaler = load_models()
 
-# Loading trained LSTM model and scaler
-model = load_model("aqi_lstm_model.h5", compile=False)
-scaler = joblib.load("scaler.save")
+# ---------------- Upload Section ----------------
+st.subheader("📂 Upload Last 24 Hours Data (CSV)")
 
-# Will help to upload CSV file from user
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+
+EXPECTED_COLUMNS = [
+    "aqi_index",
+    "temp_c",
+    "humidity",
+    "windspeed_kph",
+    "pm2_5",
+    "pm10",
+    "pressure_mb"
+]
 
 if uploaded_file is not None:
-    
-    # Reading uploaded file into pandas dataframe
+
     data = pd.read_csv(uploaded_file)
-    # Initializing prediction variables
-    predicted_aqi = None
-    lower_bound = None
-    upper_bound = None
 
-    # Displaying first few rows to verify data 
-    st.write("Preview of uploaded data:")
-    st.write(data.head())
-    
-     # This will help to check if user uploaded exactly 24 hours data
+    st.write("Preview of Uploaded Data:")
+    st.dataframe(data.head())
+
+    # Validate rows
     if len(data) != 24:
-        st.error("Please upload exactly 24 rows (24 hours data).")
+        st.error("⚠ Please upload exactly 24 rows (24 hours data).")
+        st.stop()
 
-    else:
-        
-        # This will Button to trigger prediction
-        if st.button("Predict Next Hour AQI"):
+    # Validate columns
+    if list(data.columns) != EXPECTED_COLUMNS:
+        st.error("⚠ CSV columns do not match expected format.")
+        st.write("Expected columns:", EXPECTED_COLUMNS)
+        st.stop()
 
-            scaled_data = scaler.transform(data)
-            sequence = np.expand_dims(scaled_data, axis=0)
-            prediction = model.predict(sequence)
+    if st.button("🚀 Predict Next Hour AQI"):
 
-            dummy = np.zeros((1, scaled_data.shape[1]))
-            dummy[0, 0] = prediction[0][0]
+        # ---------------- Preprocessing ----------------
+        scaled_data = scaler.transform(data)
 
-            predicted_aqi = scaler.inverse_transform(dummy)[0][0]
-            # Getting AQI category
-            category = get_aqi_category(predicted_aqi)
+        lstm_input = np.expand_dims(scaled_data, axis=0)
+        flat_input = scaled_data.reshape(1, -1)
 
-            confidence_margin = 5
-            lower_bound = predicted_aqi - confidence_margin
-            upper_bound = predicted_aqi + confidence_margin
+        # ---------------- Predictions ----------------
+        # LSTM
+        lstm_pred_scaled = lstm_model.predict(lstm_input)
+        dummy_lstm = np.zeros((1, 7))
+        dummy_lstm[:, 0] = lstm_pred_scaled[:, 0]
+        lstm_pred = scaler.inverse_transform(dummy_lstm)[0][0]
 
-            # Displaying results
-            st.success(f"Predicted Next Hour AQI: {round(predicted_aqi, 2)}")
-            st.info(f"AQI Category: {category}")
-            st.write(f"Prediction Range: {round(lower_bound,2)} - {round(upper_bound,2)}")
+        # Linear Regression
+        lr_pred_scaled = lr_model.predict(flat_input)
+        dummy_lr = np.zeros((1, 7))
+        dummy_lr[:, 0] = lr_pred_scaled
+        lr_pred = scaler.inverse_transform(dummy_lr)[0][0]
 
-        # -------- GRAPH SECTION --------
-        st.subheader("Last 24 Hours AQI Trend + Forecast")
+        # Random Forest
+        rf_pred_scaled = rf_model.predict(flat_input)
+        dummy_rf = np.zeros((1, 7))
+        dummy_rf[:, 0] = rf_pred_scaled
+        rf_pred = scaler.inverse_transform(dummy_rf)[0][0]
 
-        # Creating new plot
-        plt.figure()
+        # ---------------- Results Section ----------------
+        st.success("✅ Prediction Completed")
+
+        results_df = pd.DataFrame({
+            "Model": ["Linear Regression", "Random Forest", "LSTM"],
+            "Predicted AQI": [
+                round(lr_pred, 2),
+                round(rf_pred, 2),
+                round(lstm_pred, 2)
+            ]
+        })
+
+        st.subheader("📊 Model Comparison")
+        st.dataframe(results_df)
+
+        # Highlight LSTM as primary model
+        category = get_aqi_category(lstm_pred)
+
+        st.markdown(f"### 🌫 Final AQI (LSTM): **{round(lstm_pred,2)}**")
+        st.info(f"Category: {category}")
+
+        # Confidence band
+        margin = 5
+        lower = lstm_pred - margin
+        upper = lstm_pred + margin
+        st.write(f"Prediction Range: {round(lower,2)} - {round(upper,2)}")
+
+        # ---------------- Visualization ----------------
+        st.subheader("📈 Last 24 Hours Trend + Forecast")
+
+        plt.figure(figsize=(8,5))
 
         hours = list(range(24))
         future_hour = 24
 
-        # Plotting last 24 hours AQI trend
-        plt.plot(hours, data["aqi_index"].values, marker='o')
+        plt.plot(hours, data["aqi_index"].values, marker='o', label="Past 24 Hours")
 
-        # If prediction is available, it will plot forecast
-        if predicted_aqi is not None:
+        plt.plot(
+            [23, future_hour],
+            [data["aqi_index"].values[-1], lstm_pred],
+            linestyle='--',
+            label="Forecast"
+        )
 
-            # Drawing dashed line from last hour to predicted hour
-            plt.plot(
-                [23, future_hour],
-                [data["aqi_index"].values[-1], predicted_aqi],
-                linestyle='--'
-            )
+        plt.scatter(future_hour, lstm_pred)
+        plt.vlines(future_hour, lower, upper)
+        plt.text(future_hour, lstm_pred, f"{round(lstm_pred,2)}")
 
-            plt.scatter(future_hour, predicted_aqi)
-
-            if lower_bound is not None and upper_bound is not None:
-                plt.vlines(future_hour, lower_bound, upper_bound)
-
-            plt.text(
-                future_hour,
-                predicted_aqi,
-                f"{round(predicted_aqi, 2)}"
-            )
-
-         # Labeling graph axes
         plt.xlabel("Hour")
         plt.ylabel("AQI")
         plt.xticks(range(0, 25))
+        plt.legend()
 
-        # Showing plot in Streamlit
         st.pyplot(plt)
+
+        # ---------------- Bar Chart Comparison ----------------
+        st.subheader("📊 Model Prediction Comparison")
+
+        fig, ax = plt.subplots()
+        ax.bar(results_df["Model"], results_df["Predicted AQI"])
+        ax.set_ylabel("Predicted AQI")
+        ax.set_title("Model Comparison")
+        plt.xticks(rotation=20)
+
+        st.pyplot(fig)

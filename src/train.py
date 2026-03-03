@@ -1,6 +1,7 @@
 #-----AQI LSTM Model Training Script-----
 print("Step 1: Script is running")
 import pandas as pd
+import joblib
 
 print("Step 2: Loading dataset...")
 
@@ -84,6 +85,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 print("Step 6A: Training Linear Regression...")
 
+
 # Reshaped 3D sequence data to 2D for ML model
 X_train_flat = X_train.reshape(X_train.shape[0], -1)
 X_test_flat = X_test.reshape(X_test.shape[0], -1)
@@ -125,6 +127,9 @@ print("MAE:", mae_lr)
 print("RMSE:", rmse_lr)
 print("R2 Score:", r2_lr)
 
+joblib.dump(lr, "linear_model.pkl")
+print("Linear Regression model saved.")
+
 #-----Building LSTM Model-----
 print("Step 6: Building LSTM model...")
 
@@ -163,6 +168,10 @@ print("\nRandom Forest Results:")
 print("MAE:", mae_rf)
 print("RMSE:", rmse_rf)
 print("R2 Score:", r2_rf)
+
+joblib.dump(rf, "random_forest_model.pkl")
+print("Random Forest model saved.")
+
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import LSTM, Dense, Dropout # type: ignore
 
@@ -233,6 +242,23 @@ from sklearn.metrics import r2_score
 r2_lstm = r2_score(predicted_aqi, actual_aqi)
 
 print("R2 Score:", r2_lstm)
+# Visualization: Actual vs Predicted (LSTM)
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(12, 6))
+plt.plot(actual_aqi[:200], label="Actual AQI")
+plt.plot(predicted_aqi[:200], label="Predicted AQI")
+plt.title("Actual vs Predicted AQI (LSTM Model)")
+plt.xlabel("Time Steps")
+plt.ylabel("AQI")
+plt.legend()
+plt.tight_layout()
+
+plt.savefig("results_lstm.png")
+plt.show()
+
+print("Prediction graph saved as results_lstm.png")
 
 #-----Saving Model and Scaler-----
 print("Step 10: Saving model...")
@@ -248,3 +274,17 @@ joblib.dump(scaler, "scaler.save")
 
 print("Scaler saved successfully.")
 
+# Final Model Comparison Table
+
+import pandas as pd
+
+results = pd.DataFrame({
+    "Model": ["Linear Regression", "Random Forest", "LSTM"],
+    "MAE": [mae_lr, mae_rf, mae],
+    "RMSE": [rmse_lr, rmse_rf, rmse],
+    "R2 Score": [r2_lr, r2_rf, r2_lstm]
+})
+
+print("\n================ Final Model Comparison ================")
+print(results)
+print("========================================================")

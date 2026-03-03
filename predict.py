@@ -1,49 +1,77 @@
-#-----AQI Model Testing Script-----
+# ----- AQI Model Testing Script (All Models Comparison) -----
+
 import numpy as np
 import joblib
-from tensorflow.keras.models import load_model # type: ignore
+from tensorflow.keras.models import load_model  # type: ignore
 
-print ("Loading model and scaler...")
+print("Loading models and scaler...")
 
-# Loading trained LSTM model
-model = load_model("aqi_lstm_model.h5", compile=False)
-
-# Loading saved MinMax scaler
+# Load trained models
+lstm_model = load_model("aqi_lstm_model.h5", compile=False)
+lr_model = joblib.load("linear_model.pkl")
+rf_model = joblib.load("random_forest_model.pkl")
 scaler = joblib.load("scaler.save")
 
-print("Model loaded successfully.")
+print("All models loaded successfully.")
 
-#-----Creating Sample Input for Testing-----
-
-# Example input (last 24 hours data simulation)
-# You must provide 24 rows with 7 features
-# Format: [aqi_index, temp_c, humidity, windspeed_kph, pm2_5, pm10, pressure_mb]
+# ----- Sample Input (Last 24 hours data simulation) -----
+# Format:
+# [aqi_index, temp_c, humidity, windspeed_kph, pm2_5, pm10, pressure_mb]
 
 sample_input = np.array([
     [200, 8.0, 95, 5.0, 150, 160, 995]
-] * 24)  # Repeating same values for 24 hours
+] * 24)
 
-#-----Scaling Input Data-----
-
-# Scaling input using previously fitted scaler
+# ----- Scaling Input -----
 scaled_input = scaler.transform(sample_input)
 
-# Reshaping data to match LSTM expected input shape
-# Shape required: (samples, time_steps, features)
-scaled_input = np.reshape(scaled_input, (1, 24, 7))
+# LSTM input shape: (samples, time_steps, features)
+lstm_input = scaled_input.reshape(1, 24, 7)
 
-print("Making prediction...")
+# Flatten full 24-hour sequence for LR & RF
+flat_input = scaled_input.reshape(1, -1)
+
+print("Making predictions...")
+
+# -------- LSTM Prediction --------
+lstm_pred_scaled = lstm_model.predict(lstm_input)
+dummy_lstm = np.zeros((1, 7))
+dummy_lstm[:, 0] = lstm_pred_scaled[:, 0]
+lstm_pred = scaler.inverse_transform(dummy_lstm)[:, 0][0]
+
+# -------- Linear Regression Prediction --------
+lr_pred_scaled = lr_model.predict(flat_input)
+dummy_lr = np.zeros((1, 7))
+dummy_lr[:, 0] = lr_pred_scaled
+lr_pred = scaler.inverse_transform(dummy_lr)[:, 0][0]
+
+# -------- Random Forest Prediction --------
+rf_pred_scaled = rf_model.predict(flat_input)
+dummy_rf = np.zeros((1, 7))
+dummy_rf[:, 0] = rf_pred_scaled
+rf_pred = scaler.inverse_transform(dummy_rf)[:, 0][0]
 
 
-# Predicting next hour AQI (scaled value)
-prediction = model.predict(scaled_input)
+# ----- AQI Category Interpretation -----
+def aqi_category(aqi):
+    if aqi <= 50:
+        return "Good"
+    elif aqi <= 100:
+        return "Moderate"
+    elif aqi <= 150:
+        return "Unhealthy for Sensitive Groups"
+    elif aqi <= 200:
+        return "Unhealthy"
+    elif aqi <= 300:
+        return "Very Unhealthy"
+    else:
+        return "Hazardous"
 
-#-----Converting Prediction Back to Real Value-----
 
-# Creating dummy array for inverse scaling
-dummy = np.zeros((1, 7))
-dummy[:, 0] = prediction[:, 0]
-
-# Getting actual AQI value
-predicted_aqi = scaler.inverse_transform(dummy)[:, 0]
-print("Predicted AQI:", predicted_aqi[0])
+print("\n========= Prediction Comparison =========")
+print(f"Linear Regression AQI : {round(lr_pred,2)}")
+print(f"Random Forest AQI     : {round(rf_pred,2)}")
+print(f"LSTM AQI              : {round(lstm_pred,2)}")
+print("------------------------------------------")
+print(f"LSTM Category         : {aqi_category(lstm_pred)}")
+print("==========================================")
