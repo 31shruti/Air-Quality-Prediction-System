@@ -6,6 +6,22 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model  # type: ignore
+import requests
+import time
+
+def fetch_last_24_hours(lat, lon):
+    api_key = st.secrets["OPENWEATHER_API_KEY"]
+    end = int(time.time())
+    start = end - (24 * 60 * 60)
+
+    url = f"http://api.openweathermap.org/data/2.5/air_pollution/history?lat={lat}&lon={lon}&start={start}&end={end}&appid={api_key}"
+    
+    response = requests.get(url)
+    data = response.json()
+
+    values = [item["main"]["aqi"] for item in data["list"]]
+
+    return values[-24:]
 
 # ---------------- Page Config ----------------
 st.set_page_config(page_title="AQI Forecast System", layout="centered")
@@ -41,7 +57,7 @@ def load_models():
 lstm_model, lr_model, rf_model, scaler, metrics = load_models()
 
 # ---------------- Upload Section ----------------
-st.subheader("📂 Upload Last 24 Hours Data (CSV)")
+st.subheader("Upload Last 24 Hours Data (CSV)")
 
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
