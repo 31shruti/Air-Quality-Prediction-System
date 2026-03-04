@@ -9,19 +9,44 @@ from tensorflow.keras.models import load_model  # type: ignore
 import requests
 import time
 
-def fetch_last_24_hours(lat, lon):
+def fetch_last_24_hours_full(lat, lon):
     api_key = st.secrets["OPENWEATHER_API_KEY"]
     end = int(time.time())
     start = end - (24 * 60 * 60)
 
-    url = f"http://api.openweathermap.org/data/2.5/air_pollution/history?lat={lat}&lon={lon}&start={start}&end={end}&appid={api_key}"
+    # Air pollution history
+    pollution_url = f"http://api.openweathermap.org/data/2.5/air_pollution/history?lat={lat}&lon={lon}&start={start}&end={end}&appid={api_key}"
     
-    response = requests.get(url)
-    data = response.json()
+    pollution_response = requests.get(pollution_url).json()
 
-    values = [item["main"]["aqi"] for item in data["list"]]
+    # Current weather (for temperature, humidity etc.)
+    weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+    
+    weather_response = requests.get(weather_url).json()
 
-    return values[-24:]
+    pollution_list = pollution_response["list"]
+
+    aqi = [item["main"]["aqi"] for item in pollution_list][-24:]
+    pm25 = [item["components"]["pm2_5"] for item in pollution_list][-24:]
+    pm10 = [item["components"]["pm10"] for item in pollution_list][-24:]
+
+    temp = weather_response["main"]["temp"]
+    humidity = weather_response["main"]["humidity"]
+    pressure = weather_response["main"]["pressure"]
+    windspeed = weather_response["wind"]["speed"]
+
+    # Repeat weather values for 24 rows
+    live_df = pd.DataFrame({
+        "aqi_index": aqi,
+        "temp_c": [temp]*24,
+        "humidity": [humidity]*24,
+        "windspeed_kph": [windspeed]*24,
+        "pm2_5": pm25,
+        "pm10": pm10,
+        "pressure_mb": [pressure]*24
+    })
+
+    return live_df
 
 # ---------------- Page Config ----------------
 st.set_page_config(page_title="AQI Forecast System", layout="centered")
@@ -202,29 +227,25 @@ lon = st.number_input("Longitude", value=77.2090)
 if st.button("Predict Using Live API Data"):
 
     try:
-        values = fetch_last_24_hours(lat, lon)
+        # Fetch full feature dataframe
+        live_df = fetch_last_24_hours_full(lat, lon)
 
-        if len(values) < 24:
+        if len(live_df) < 24:
             st.error("Not enough data returned from API.")
             st.stop()
 
-        live_df = pd.DataFrame({
-            "aqi_index": values,
-            "temp_c": [0]*24,
-            "humidity": [0]*24,
-            "windspeed_kph": [0]*24,
-            "pm2_5": [0]*24,
-            "pm10": [0]*24,
-            "pressure_mb": [0]*24
-        })
-
+        # Scale features
         scaled_data = scaler.transform(live_df)
+
+        # Reshape for LSTM (1 sample, 24 timesteps, 7 features)
         lstm_input = np.expand_dims(scaled_data, axis=0)
 
+        # Predict
         lstm_pred_scaled = lstm_model.predict(lstm_input)
 
-        dummy = np.zeros((1,7))
-        dummy[:,0] = lstm_pred_scaled[:,0]
+        # Inverse scaling
+        dummy = np.zeros((1, 7))
+        dummy[:, 0] = lstm_pred_scaled[:, 0]
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
 
         st.success(f"Predicted Next Hour AQI: {round(lstm_pred,2)}")
