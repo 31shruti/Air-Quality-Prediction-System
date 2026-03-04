@@ -234,6 +234,14 @@ if st.button("Predict Using Live API Data"):
             st.error("Not enough data returned from API.")
             st.stop()
 
+        live_df["aqi_index"] = live_df["aqi_index"].map({
+        1: 25,
+        2: 75,
+        3: 125,
+        4: 200,
+        5: 350
+        })
+
         # Scale features
         scaled_data = scaler.transform(live_df)
 
