@@ -1,9 +1,7 @@
 venv/
 __pycache__/
 *.pyc
-aqi_lstm_model.h5
-aqi_lstm_model.keras
-scaler.save
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
