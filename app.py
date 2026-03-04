@@ -191,3 +191,43 @@ if uploaded_file is not None:
         plt.xticks(rotation=20)
 
         st.pyplot(fig)
+
+# ---------------- Real-Time Mode ----------------
+st.markdown("---")
+st.subheader("🌍 Real-Time AQI Forecast (Live API)")
+
+lat = st.number_input("Latitude", value=28.6139)
+lon = st.number_input("Longitude", value=77.2090)
+
+if st.button("Predict Using Live API Data"):
+
+    try:
+        values = fetch_last_24_hours(lat, lon)
+
+        if len(values) < 24:
+            st.error("Not enough data returned from API.")
+            st.stop()
+
+        live_df = pd.DataFrame({
+            "aqi_index": values,
+            "temp_c": [0]*24,
+            "humidity": [0]*24,
+            "windspeed_kph": [0]*24,
+            "pm2_5": [0]*24,
+            "pm10": [0]*24,
+            "pressure_mb": [0]*24
+        })
+
+        scaled_data = scaler.transform(live_df)
+        lstm_input = np.expand_dims(scaled_data, axis=0)
+
+        lstm_pred_scaled = lstm_model.predict(lstm_input)
+
+        dummy = np.zeros((1,7))
+        dummy[:,0] = lstm_pred_scaled[:,0]
+        lstm_pred = scaler.inverse_transform(dummy)[0][0]
+
+        st.success(f"Predicted Next Hour AQI: {round(lstm_pred,2)}")
+
+    except Exception as e:
+        st.error(f"Error fetching API data: {e}")
