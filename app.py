@@ -361,7 +361,7 @@ if st.button("Predict Using Live API Data"):
         st.dataframe(live_df.tail())
         st.write("PM2.5:", live_df["pm2_5"].iloc[-1])
         st.write("PM10:", live_df["pm10"].iloc[-1])
-        st.write("Latest API Row:", live_df.tail(1))
+        st.write("AQI category from API:", live_df["aqi_index"].iloc[-1])
 
         if len(live_df) < 24:
             st.error("Not enough data returned from API.")
@@ -369,11 +369,11 @@ if st.button("Predict Using Live API Data"):
 
         # Convert AQI category to approximate numeric value
         live_df["aqi_index"] = live_df["aqi_index"].map({
-            1: 25,
-            2: 75,
-            3: 125,
-            4: 175,
-            5: 225
+            1: 20,
+            2: 50,
+            3: 100,
+            4: 150,
+            5: 200
         })
 
         # Scale features
