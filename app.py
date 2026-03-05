@@ -306,6 +306,22 @@ if uploaded_file is not None:
 
         st.pyplot(fig)
  
+def health_advice(aqi):
+
+    if aqi <= 50:
+        return "Air quality is good. Enjoy outdoor activities."
+
+    elif aqi <= 100:
+        return "Air quality is moderate. Sensitive people should reduce prolonged outdoor exertion."
+
+    elif aqi <= 200:
+        return "Unhealthy for sensitive groups. Children and elderly should limit outdoor exposure."
+
+    elif aqi <= 300:
+        return "Unhealthy. Everyone should reduce prolonged outdoor activities."
+
+    else:
+        return "Very unhealthy. Avoid outdoor activities and wear protective masks." 
 
 # ---------------- Real-Time Mode ----------------
 st.markdown("---")
@@ -321,25 +337,27 @@ if st.button("Predict Using Live API Data"):
         live_df, city = fetch_last_24_hours_full(lat, lon)
         st.subheader(f"Location: {city}")
 
-        # MAP INSERT HERE
+        # Map showing selected location
         st.map(pd.DataFrame({
-            'lat': [lat],
-            'lon': [lon]
+            "lat": [lat],
+            "lon": [lon]
         }))
 
         st.subheader("Live Data Used for Prediction")
         st.dataframe(live_df.tail())
+        st.write("Latest API Row:", live_df.tail(1))
 
         if len(live_df) < 24:
             st.error("Not enough data returned from API.")
             st.stop()
 
+        # Convert AQI category to approximate numeric value
         live_df["aqi_index"] = live_df["aqi_index"].map({
-        1: 25,
-        2: 75,
-        3: 125,
-        4: 200,
-        5: 350
+            1: 30,
+            2: 80,
+            3: 130,
+            4: 180,
+            5: 250
         })
 
         # Scale features
@@ -356,85 +374,125 @@ if st.button("Predict Using Live API Data"):
         dummy[:, 0] = lstm_pred_scaled[:, 0]
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
 
+        # Clamp AQI range
+        lstm_pred = max(0, min(lstm_pred, 500))
+
+        st.write("Scaled Prediction:", lstm_pred_scaled)
+        st.write("Final AQI:", lstm_pred)
+
         st.metric(
-        label="Predicted Next Hour AQI",
-        value=round(lstm_pred,2)
+            label="Predicted Next Hour AQI",
+            value=round(lstm_pred, 2)
         )
 
+        # Health advice
+        advice = health_advice(lstm_pred)
+
+        st.subheader("Health Recommendation")
+        st.info(advice)
+
+        # Pollution components
         st.subheader("🧪 Pollution Components")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.metric("PM2.5", round(live_df["pm2_5"].iloc[-1],2))
+            st.metric("PM2.5", round(live_df["pm2_5"].iloc[-1], 2))
 
         with col2:
-            st.metric("PM10", round(live_df["pm10"].iloc[-1],2))
+            st.metric("PM10", round(live_df["pm10"].iloc[-1], 2))
 
+        # Pollution distribution
+        st.subheader("Pollution Distribution")
+
+        pollution_data = {
+            "PM2.5": live_df["pm2_5"].iloc[-1],
+            "PM10": live_df["pm10"].iloc[-1]
+        }
+
+        fig2, ax2 = plt.subplots()
+        ax2.bar(pollution_data.keys(), pollution_data.values())
+        ax2.set_ylabel("Concentration")
+
+        st.pyplot(fig2)
+
+        # AQI Category
         category = get_aqi_category(lstm_pred)
 
         def get_color(aqi):
-           if aqi <= 50:
-               return "green"
-           elif aqi <= 100:
-               return "yellow"
-           elif aqi <= 200:
-               return "orange"
-           elif aqi <= 300:
-               return "red"
-           else:
-               return "purple"
+            if aqi <= 50:
+                return "green"
+            elif aqi <= 100:
+                return "yellow"
+            elif aqi <= 200:
+                return "orange"
+            elif aqi <= 300:
+                return "red"
+            else:
+                return "purple"
 
         color = get_color(lstm_pred)
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=lstm_pred,
-            title={'text': "AQI Level"},
-            gauge={
-                'axis': {'range': [0, 500]},
-                'steps': [
-                    {'range': [0, 50], 'color': "green"},
-                    {'range': [50, 100], 'color': "yellow"},
-                    {'range': [100, 200], 'color': "orange"},
-                    {'range': [200, 300], 'color': "red"},
-                    {'range': [300, 500], 'color': "purple"}
-                ]
-            }
-        ))
+
+        # AQI Gauge
+        fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=lstm_pred,
+                title={"text": "AQI Level"},
+                gauge={
+                    "axis": {"range": [0, 500]},
+                    "steps": [
+                        {"range": [0, 50], "color": "green"},
+                        {"range": [50, 100], "color": "yellow"},
+                        {"range": [100, 200], "color": "orange"},
+                        {"range": [200, 300], "color": "red"},
+                        {"range": [300, 500], "color": "purple"}
+                    ]
+                }
+            )
+        )
 
         st.plotly_chart(fig)
 
+        # AQI Category Box
         st.markdown(
-           f"""
-              <div style="background-color:{color};
-                          padding:20px;
-                          border-radius:10px;
-                          text-align:center;
-                          font-size:20px;
-                          font-weight:bold;
-                          color:white;">
-                    AQI Category: {category}
-              </div>
-              """,
-              unsafe_allow_html=True
+            f"""
+            <div style="
+                background-color:{color};
+                padding:20px;
+                border-radius:10px;
+                text-align:center;
+                font-size:20px;
+                font-weight:bold;
+                color:white;">
+                AQI Category: {category}
+            </div>
+            """,
+            unsafe_allow_html=True
         )
+
+        # Last 24 hour trend
         if "live_df" in locals():
 
             st.subheader("Last 24 Hour AQI Trend")
 
             fig, ax = plt.subplots()
+            ax.plot(live_df["aqi_index"], marker="o")
 
-            ax.plot(live_df["aqi_index"], marker='o')
             ax.set_xlabel("Time (Past 24 Hours)")
             ax.set_ylabel("AQI")
 
             st.pyplot(fig)
+
     except Exception as e:
         st.error(f"Error fetching API data: {e}")
 
 
+# ---------------- Methodology Section ----------------
+
 st.markdown("---")
-st.subheader(" System Methodology")
+
+st.subheader("System Methodology")
 
 st.markdown("""
 1 Collect historical air quality data  
@@ -444,5 +502,5 @@ st.markdown("""
 5 Deploy using Streamlit dashboard  
 6 Integrate real-time environmental API
 """)
-
+ 
 st.caption("AI-Based Environmental Prediction System")
