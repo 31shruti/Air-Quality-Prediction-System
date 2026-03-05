@@ -12,8 +12,7 @@ import requests
 lat = 33.28
 lon = 75.34
 
-url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide"
-
+url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,temperature_2m,relative_humidity_2m,windspeed_10m,pressure_msl&start_date=2023-01-01&end_date=2024-12-31"
 response = requests.get(url)
 data = response.json()
 
@@ -29,13 +28,14 @@ df = pd.DataFrame({
 })
 
 # Adding environmental variables
-df["temp_c"] = 25
-df["humidity"] = 50
-df["windspeed_kph"] = 5
-df["pressure_mb"] = 1013
+# Adding real environmental variables from API
+df["temp_c"] = hourly["temperature_2m"]
+df["humidity"] = hourly["relative_humidity_2m"]
+df["windspeed_kph"] = hourly["windspeed_10m"]
+df["pressure_mb"] = hourly["pressure_msl"]
 
 # Creating AQI index (target variable)
-df["aqi_index"] = df["pm2_5"] * 1.5 + df["pm10"] * 0.5
+df["aqi_index"] = df["pm2_5"]
 
 print("API dataset created successfully.")
 print(df.head())
@@ -275,7 +275,7 @@ print("MAE:", mae)
 print("RMSE:", rmse)
 from sklearn.metrics import r2_score
 
-r2_lstm = r2_score(predicted_aqi, actual_aqi)
+r2_lstm = r2_score(actual_aqi, predicted_aqi)
 
 print("R2 Score:", r2_lstm)
 # Visualization: Actual vs Predicted (LSTM)
