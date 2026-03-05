@@ -47,27 +47,23 @@ def fetch_last_24_hours_full(lat, lon):
 
     # Repeat weather values for 24 rows
     live_df = pd.DataFrame({
-    "aqi_index": aqi,
-    "temp_c": [temp]*24,
-    "humidity": [humidity]*24,
-    "windspeed_kph": [windspeed]*24,
-    "pm2_5": pm25,
-    "pm10": pm10,
-    "no2": no2,
-    "co": co,
-    "o3": o3,
-    "so2": so2,
-    "pressure_mb": [pressure]*24
-})
+        "aqi_index": aqi,
+        "temp_c": [temp]*24,
+        "humidity": [humidity]*24,
+        "windspeed_kph": [windspeed]*24,
+        "pm2_5": pm25,
+        "pm10": pm10,
+        "pressure_mb": [pressure]*24
+     })
     
-    # extra_pollutants = {
-    #     "NO2": no2[-1],
-    #     "CO": co[-1],
-    #     "O3": o3[-1],
-    #     "SO2": so2[-1]
-    # }
+    extra_pollutants = {
+        "NO2": no2[-1],
+        "CO": co[-1],
+        "O3": o3[-1],
+        "SO2": so2[-1]
+    }
 
-    return live_df, city
+    return live_df, city, extra_pollutants
 
 # ---------------- Page Config ----------------
 st.set_page_config(
@@ -346,21 +342,8 @@ def health_advice(aqi):
 st.markdown("---")
 st.subheader("🌍 Real-Time AQI Forecast (Live API)")
 
-lat = st.number_input(
-    "Enter Latitude",
-    min_value=-90.0,
-    max_value=90.0,
-    value=28.6139,   # default location (Delhi example)
-    step=0.0001
-)
-
-lon = st.number_input(
-    "Enter Longitude",
-    min_value=-180.0,
-    max_value=180.0,
-    value=77.2090,   # default location
-    step=0.0001
-)
+lat = st.number_input("Enter Latitude", min_value=-90.0, max_value=90.0, step=0.0001)
+lon = st.number_input("Enter Longitude", min_value=-180.0, max_value=180.0, step=0.0001)
 
 st.write(f"Latitude: {lat}")
 st.write(f"Longitude: {lon}")
@@ -388,8 +371,13 @@ if st.button("Predict Using Live API Data"):
             st.stop()
 
         # Convert AQI category to approximate numeric value
-        # Convert PM2.5 to approximate AQI
-        live_df["aqi_index"] = live_df["pm2_5"] * 1.3
+        live_df["aqi_index"] = live_df["aqi_index"].map({
+            1: 20,
+            2: 50,
+            3: 100,
+            4: 150,
+            5: 200
+        })
 
         # Scale features
         scaled_data = scaler.transform(live_df)
