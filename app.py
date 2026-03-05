@@ -346,7 +346,6 @@ lat = st.number_input("Latitude", value=28.6139)
 lon = st.number_input("Longitude", value=77.2090)
 
 if st.button("Predict Using Live API Data"):
-
     try:
         # Fetch full feature dataframe
         live_df, city, extra_pollutants = fetch_last_24_hours_full(lat, lon)
@@ -390,6 +389,14 @@ if st.button("Predict Using Live API Data"):
         dummy = np.zeros((1, 7))
         dummy[:, 0] = lstm_pred_scaled[:, 0]
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
+        # --- Pollution reality correction ---
+        pm25 = live_df["pm2_5"].iloc[-1]
+        pm10 = live_df["pm10"].iloc[-1]
+
+        pollution_estimate = (pm25 * 1.2) + (pm10 * 0.6)
+
+         # Blend model prediction with real pollution
+        lstm_pred = (lstm_pred * 0.6) + (pollution_estimate * 0.4)
 
         # Clamp AQI range
         lstm_pred = max(10, min(lstm_pred, 350))
