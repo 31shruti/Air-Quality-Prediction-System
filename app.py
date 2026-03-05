@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model  # type: ignore
 import requests
 import time
+import plotly.graph_objects as go # type: ignore
 
 def fetch_last_24_hours_full(lat, lon):
     api_key = st.secrets["OPENWEATHER_API_KEY"]
@@ -23,6 +24,7 @@ def fetch_last_24_hours_full(lat, lon):
     weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     
     weather_response = requests.get(weather_url).json()
+    city = weather_response["name"]
 
     pollution_list = pollution_response["list"]
 
@@ -46,7 +48,7 @@ def fetch_last_24_hours_full(lat, lon):
         "pressure_mb": [pressure]*24
     })
 
-    return live_df
+    return live_df, city
 
 # ---------------- Page Config ----------------
 st.set_page_config(
@@ -250,8 +252,9 @@ if st.button("Predict Using Live API Data"):
 
     try:
         # Fetch full feature dataframe
-        live_df = fetch_last_24_hours_full(lat, lon)
-        st.subheader("📊 Live Data Used for Prediction")
+        live_df, city = fetch_last_24_hours_full(lat, lon)
+        st.subheader(f"Location: {city}")
+        st.subheader("Live Data Used for Prediction")
         st.dataframe(live_df.tail())
 
         if len(live_df) < 24:
@@ -285,6 +288,16 @@ if st.button("Predict Using Live API Data"):
         value=round(lstm_pred,2)
         )
 
+        st.subheader("🧪 Pollution Components")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric("PM2.5", round(live_df["pm2_5"].iloc[-1],2))
+
+        with col2:
+            st.metric("PM10", round(live_df["pm10"].iloc[-1],2))
+
         category = get_aqi_category(lstm_pred)
 
         def get_color(aqi):
@@ -300,6 +313,23 @@ if st.button("Predict Using Live API Data"):
                return "purple"
 
         color = get_color(lstm_pred)
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=lstm_pred,
+            title={'text': "AQI Level"},
+            gauge={
+                'axis': {'range': [0, 500]},
+                'steps': [
+                    {'range': [0, 50], 'color': "green"},
+                    {'range': [50, 100], 'color': "yellow"},
+                    {'range': [100, 200], 'color': "orange"},
+                    {'range': [200, 300], 'color': "red"},
+                    {'range': [300, 500], 'color': "purple"}
+                ]
+            }
+        ))
+
+        st.plotly_chart(fig)
 
         st.markdown(
            f"""
@@ -329,3 +359,17 @@ if st.button("Predict Using Live API Data"):
     except Exception as e:
         st.error(f"Error fetching API data: {e}")
 
+
+st.markdown("---")
+st.subheader(" System Methodology")
+
+st.markdown("""
+1 Collect historical air quality data  
+2 Preprocess environmental features  
+3 Train machine learning models  
+4 Train LSTM deep learning model  
+5 Deploy using Streamlit dashboard  
+6 Integrate real-time environmental API
+""")
+
+st.caption("AI-Based Environmental Prediction System")
