@@ -56,7 +56,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.sidebar.title("🌍 Project Info")
+st.sidebar.title("Project Info")
 
 st.sidebar.info("""
 AI-Based Air Quality Forecast System
@@ -92,6 +92,38 @@ def get_aqi_category(aqi):
         return "Very Unhealthy"
     else:
         return "Hazardous"
+    
+# ---------------- Multi-step Forecast ----------------
+
+def forecast_next_24_hours(model, scaler, data):
+
+    predictions = []
+    temp_data = data.copy()
+
+    for i in range(24):
+
+        scaled = scaler.transform(temp_data)
+        lstm_input = np.expand_dims(scaled, axis=0)
+
+        pred_scaled = model.predict(lstm_input)
+
+        dummy = np.zeros((1,7))
+        dummy[:,0] = pred_scaled[:,0]
+
+        pred = scaler.inverse_transform(dummy)[0][0]
+
+        predictions.append(pred)
+
+        # slide window
+        new_row = temp_data.iloc[-1].copy()
+        new_row["aqi_index"] = pred
+
+        temp_data = pd.concat(
+            [temp_data.iloc[1:], pd.DataFrame([new_row])],
+            ignore_index=True
+        )
+
+    return predictions       
 
 # ---------------- Load Models ----------------
 @st.cache_resource
@@ -138,7 +170,7 @@ if uploaded_file is not None:
         st.write("Expected columns:", EXPECTED_COLUMNS)
         st.stop()
 
-    if st.button("🚀 Predict Next Hour AQI"):
+    if st.button("Predict Next Hour AQI"):
 
         # ---------------- Preprocessing ----------------
         scaled_data = scaler.transform(data)
@@ -168,6 +200,22 @@ if uploaded_file is not None:
         # ---------------- Results Section ----------------
         st.success("✅ Prediction Completed")
 
+    if st.button("📅 Forecast Next 24 Hours"):
+
+        future_predictions = forecast_next_24_hours(
+            lstm_model,
+            scaler,
+            data
+        )
+
+        forecast_df = pd.DataFrame({
+            "Hour Ahead": list(range(1,25)),
+            "Predicted AQI": [round(x,2) for x in future_predictions]
+        })
+
+        st.subheader("24 Hour AQI Forecast")
+        st.dataframe(forecast_df)
+
         results_df = pd.DataFrame({
             "Model": ["Linear Regression", "Random Forest", "LSTM"],
             "Predicted AQI": [
@@ -183,7 +231,7 @@ if uploaded_file is not None:
 
         std_dev = np.std(predictions)
 
-        st.subheader("🧠 Prediction Confidence")
+        st.subheader("Prediction Confidence")
 
         if std_dev < 10:
             st.success("High Model Agreement (High Confidence)")
@@ -257,6 +305,7 @@ if uploaded_file is not None:
         plt.xticks(rotation=20)
 
         st.pyplot(fig)
+ 
 
 # ---------------- Real-Time Mode ----------------
 st.markdown("---")
@@ -271,6 +320,13 @@ if st.button("Predict Using Live API Data"):
         # Fetch full feature dataframe
         live_df, city = fetch_last_24_hours_full(lat, lon)
         st.subheader(f"Location: {city}")
+
+        # MAP INSERT HERE
+        st.map(pd.DataFrame({
+            'lat': [lat],
+            'lon': [lon]
+        }))
+
         st.subheader("Live Data Used for Prediction")
         st.dataframe(live_df.tail())
 
@@ -364,7 +420,7 @@ if st.button("Predict Using Live API Data"):
         )
         if "live_df" in locals():
 
-            st.subheader("📈 Last 24 Hour AQI Trend")
+            st.subheader("Last 24 Hour AQI Trend")
 
             fig, ax = plt.subplots()
 
