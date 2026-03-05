@@ -4,28 +4,52 @@ import pandas as pd
 import joblib
 from sklearn.metrics import mean_squared_error
 import numpy as np
-
-print("Step 2: Fetching historical API data...")
-
 import requests
 
-lat = 33.28
-lon = 75.34
+# generate random locations so model learns from many places
+num_locations = 15
 
-url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,temperature_2m,relative_humidity_2m,windspeed_10m,pressure_msl&start_date=2023-01-01&end_date=2024-12-31"
-response = requests.get(url)
-data = response.json()
+lats = np.random.uniform(-60, 60, num_locations)
+lons = np.random.uniform(-180, 180, num_locations)
 
-hourly = data["hourly"]
+locations = list(zip(lats, lons))
 
-df = pd.DataFrame({
-    "pm2_5": hourly["pm2_5"],
-    "pm10": hourly["pm10"],
-    "no2": hourly["nitrogen_dioxide"],
-    "co": hourly["carbon_monoxide"],
-    "o3": hourly["ozone"],
-    "so2": hourly["sulphur_dioxide"]
-})
+all_data = []
+
+for lat, lon in locations:
+
+    print("Fetching data for:", lat, lon)
+
+    url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,temperature_2m,relative_humidity_2m,windspeed_10m,pressure_msl&start_date=2023-01-01&end_date=2024-12-31"
+
+    response = requests.get(url)
+    data = response.json()
+
+    if "hourly" not in data:
+        continue
+
+    hourly = data["hourly"]
+
+    temp_df = pd.DataFrame({
+        "pm2_5": hourly["pm2_5"],
+        "pm10": hourly["pm10"],
+        "no2": hourly["nitrogen_dioxide"],
+        "co": hourly["carbon_monoxide"],
+        "o3": hourly["ozone"],
+        "so2": hourly["sulphur_dioxide"],
+        "temp_c": hourly["temperature_2m"],
+        "humidity": hourly["relative_humidity_2m"],
+        "windspeed_kph": hourly["windspeed_10m"],
+        "pressure_mb": hourly["pressure_msl"]
+    })
+
+    all_data.append(temp_df)
+
+df = pd.concat(all_data, ignore_index=True)
+df = df.dropna()
+
+df = df[df["pm2_5"] < 200]
+df = df[df["pm10"] < 300]
 
 # Adding environmental variables
 # Adding real environmental variables from API
