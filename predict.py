@@ -16,17 +16,17 @@ print("All models loaded successfully.")
 
 # ----- Sample Input (Last 24 hours data simulation) -----
 # Format:
-# [aqi_index, temp_c, humidity, windspeed_kph, pm2_5, pm10, pressure_mb]
+# [aqi_index, temp_c, humidity, windspeed_kph, pm2_5, pm10, no2, co, o3, so2, pressure_mb]
 
 sample_input = np.array([
-    [200, 8.0, 95, 5.0, 150, 160, 995]
+    [200, 8.0, 95, 5.0, 150, 160, 40, 0.8, 30, 5, 995]
 ] * 24)
 
 # ----- Scaling Input -----
 scaled_input = scaler.transform(sample_input)
 
 # LSTM input shape: (samples, time_steps, features)
-lstm_input = scaled_input.reshape(1, 24, 7)
+lstm_input = scaled_input.reshape(1, 24, 11)
 
 # Flatten full 24-hour sequence for LR & RF
 flat_input = scaled_input.reshape(1, -1)
@@ -35,19 +35,19 @@ print("Making predictions...")
 
 # -------- LSTM Prediction --------
 lstm_pred_scaled = lstm_model.predict(lstm_input)
-dummy_lstm = np.zeros((1, 7))
+dummy_lstm = np.zeros((1, 11))
 dummy_lstm[:, 0] = lstm_pred_scaled[:, 0]
 lstm_pred = scaler.inverse_transform(dummy_lstm)[:, 0][0]
 
 # -------- Linear Regression Prediction --------
 lr_pred_scaled = lr_model.predict(flat_input)
-dummy_lr = np.zeros((1, 7))
+dummy_lr = np.zeros((1, 11))
 dummy_lr[:, 0] = lr_pred_scaled
 lr_pred = scaler.inverse_transform(dummy_lr)[:, 0][0]
 
 # -------- Random Forest Prediction --------
 rf_pred_scaled = rf_model.predict(flat_input)
-dummy_rf = np.zeros((1, 7))
+dummy_rf = np.zeros((1, 11))
 dummy_rf[:, 0] = rf_pred_scaled
 rf_pred = scaler.inverse_transform(dummy_rf)[:, 0][0]
 

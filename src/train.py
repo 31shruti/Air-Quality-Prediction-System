@@ -5,10 +5,40 @@ import joblib
 from sklearn.metrics import mean_squared_error
 import numpy as np
 
-print("Step 2: Loading dataset...")
+print("Step 2: Fetching historical API data...")
 
-# Reading air quality dataset
-df = pd.read_csv("data/air_quality.csv")
+import requests
+
+lat = 33.28
+lon = 75.34
+
+url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide"
+
+response = requests.get(url)
+data = response.json()
+
+hourly = data["hourly"]
+
+df = pd.DataFrame({
+    "pm2_5": hourly["pm2_5"],
+    "pm10": hourly["pm10"],
+    "no2": hourly["nitrogen_dioxide"],
+    "co": hourly["carbon_monoxide"],
+    "o3": hourly["ozone"],
+    "so2": hourly["sulphur_dioxide"]
+})
+
+# Adding environmental variables
+df["temp_c"] = 25
+df["humidity"] = 50
+df["windspeed_kph"] = 5
+df["pressure_mb"] = 1013
+
+# Creating AQI index (target variable)
+df["aqi_index"] = df["pm2_5"] * 1.5 + df["pm10"] * 0.5
+
+print("API dataset created successfully.")
+print(df.head())
 
 # Selecting only required features for prediction
 FEATURES = [
@@ -18,6 +48,10 @@ FEATURES = [
     'windspeed_kph',
     'pm2_5',
     'pm10',
+    'no2',
+    'co',
+    'o3',
+    'so2',
     'pressure_mb'
 ]
 
