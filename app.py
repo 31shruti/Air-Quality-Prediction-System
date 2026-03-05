@@ -49,14 +49,17 @@ def fetch_last_24_hours_full(lat, lon):
         "windspeed_kph": [windspeed]*24,
         "pm2_5": pm25,
         "pm10": pm10,
-        "no2": no2,
-        "co": co,
-        "o3": o3,
-        "so2": so2,
         "pressure_mb": [pressure]*24
-    })
+     })
+    
+    extra_pollutants = {
+        "NO2": no2[-1],
+        "CO": co[-1],
+        "O3": o3[-1],
+        "SO2": so2[-1]
+    }
 
-    return live_df, city
+    return live_df, city, extra_pollutants
 
 # ---------------- Page Config ----------------
 st.set_page_config(
@@ -342,7 +345,7 @@ if st.button("Predict Using Live API Data"):
 
     try:
         # Fetch full feature dataframe
-        live_df, city = fetch_last_24_hours_full(lat, lon)
+        live_df, city, extra_pollutants = fetch_last_24_hours_full(lat, lon)
         st.subheader(f"Location: {city}")
 
         # Map showing selected location
@@ -416,10 +419,10 @@ if st.button("Predict Using Live API Data"):
         pollution_data = {
             "PM2.5": live_df["pm2_5"].iloc[-1],
             "PM10": live_df["pm10"].iloc[-1],
-            "NO2": live_df["no2"].iloc[-1],
-            "CO": live_df["co"].iloc[-1],
-            "O3": live_df["o3"].iloc[-1],
-            "SO2": live_df["so2"].iloc[-1]
+            "NO2": extra_pollutants["NO2"],
+            "CO": extra_pollutants["CO"],
+            "O3": extra_pollutants["O3"],
+            "SO2": extra_pollutants["SO2"]
         }
 
         fig2, ax2 = plt.subplots()
