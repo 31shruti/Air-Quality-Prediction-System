@@ -177,6 +177,23 @@ if uploaded_file is not None:
             ]
         })
 
+        # ---------------- Model Agreement / Uncertainty ----------------
+
+        predictions = [lr_pred, rf_pred, lstm_pred]
+
+        std_dev = np.std(predictions)
+
+        st.subheader("🧠 Prediction Confidence")
+
+        if std_dev < 10:
+            st.success("High Model Agreement (High Confidence)")
+        elif std_dev < 30:
+            st.warning("Moderate Agreement")
+        else:
+            st.error("Low Agreement (Higher Uncertainty)")
+
+        st.write(f"Prediction Standard Deviation: {round(std_dev,2)}")
+
         st.subheader("📊 Model Comparison")
         st.dataframe(results_df)
 
