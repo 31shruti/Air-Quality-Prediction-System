@@ -31,6 +31,10 @@ def fetch_last_24_hours_full(lat, lon):
     aqi = [item["main"]["aqi"] for item in pollution_list][-24:]
     pm25 = [item["components"]["pm2_5"] for item in pollution_list][-24:]
     pm10 = [item["components"]["pm10"] for item in pollution_list][-24:]
+    no2 = [item["components"]["no2"] for item in pollution_list][-24:]
+    co = [item["components"]["co"] for item in pollution_list][-24:]
+    o3 = [item["components"]["o3"] for item in pollution_list][-24:]
+    so2 = [item["components"]["so2"] for item in pollution_list][-24:]
 
     temp = weather_response["main"]["temp"]
     humidity = weather_response["main"]["humidity"]
@@ -45,6 +49,10 @@ def fetch_last_24_hours_full(lat, lon):
         "windspeed_kph": [windspeed]*24,
         "pm2_5": pm25,
         "pm10": pm10,
+        "no2": no2,
+        "co": co,
+        "o3": o3,
+        "so2": so2,
         "pressure_mb": [pressure]*24
     })
 
@@ -407,7 +415,11 @@ if st.button("Predict Using Live API Data"):
 
         pollution_data = {
             "PM2.5": live_df["pm2_5"].iloc[-1],
-            "PM10": live_df["pm10"].iloc[-1]
+            "PM10": live_df["pm10"].iloc[-1],
+            "NO2": live_df["no2"].iloc[-1],
+            "CO": live_df["co"].iloc[-1],
+            "O3": live_df["o3"].iloc[-1],
+            "SO2": live_df["so2"].iloc[-1]
         }
 
         fig2, ax2 = plt.subplots()
@@ -415,6 +427,28 @@ if st.button("Predict Using Live API Data"):
         ax2.set_ylabel("Concentration")
 
         st.pyplot(fig2)
+
+        st.subheader("Pollution Source Insight")
+
+        dominant = max(pollution_data, key=pollution_data.get)
+
+        if dominant == "PM2.5":
+            st.warning("Fine particulate pollution is dominant. Likely caused by traffic, construction dust, or biomass burning.")
+
+        elif dominant == "PM10":
+            st.warning("Coarse particulate pollution detected. Possible sources include road dust and construction.")
+
+        elif dominant == "NO2":
+            st.warning("Nitrogen dioxide is high. This often indicates heavy vehicle emissions.")
+
+        elif dominant == "SO2":
+            st.warning("Sulfur dioxide detected. Possible industrial or power plant emissions.")
+
+        elif dominant == "O3":
+            st.warning("Ozone pollution detected. This forms during sunlight-driven chemical reactions in polluted air.")
+
+        elif dominant == "CO":
+            st.warning("Carbon monoxide levels elevated. This may indicate incomplete combustion from vehicles or generators.")
 
         # AQI Category
         category = get_aqi_category(lstm_pred)
