@@ -49,10 +49,32 @@ def fetch_last_24_hours_full(lat, lon):
     return live_df
 
 # ---------------- Page Config ----------------
-st.set_page_config(page_title="AQI Forecast System", layout="centered")
+st.set_page_config(
+    page_title="AI AQI Forecast Dashboard",
+    layout="wide"
+)
 
-st.title("🌍 AQI Forecasting System")
-st.markdown("Predict next-hour AQI using **LSTM, Random Forest, and Linear Regression** models.")
+st.sidebar.title("🌍 Project Info")
+
+st.sidebar.info("""
+AI-Based Air Quality Forecast System
+
+Models Used:
+• LSTM Deep Learning  
+• Random Forest  
+• Linear Regression  
+
+Features:
+• CSV-based prediction  
+• Real-time AQI forecast  
+• Model comparison  
+• Trend visualization
+""")
+
+st.markdown("""
+# 🌍 AI-Based AQI Forecasting Dashboard
+### Real-Time Environmental Prediction using Machine Learning
+""")
 
 # ---------------- AQI Category Function ----------------
 def get_aqi_category(aqi):
@@ -229,6 +251,8 @@ if st.button("Predict Using Live API Data"):
     try:
         # Fetch full feature dataframe
         live_df = fetch_last_24_hours_full(lat, lon)
+        st.subheader("📊 Live Data Used for Prediction")
+        st.dataframe(live_df.tail())
 
         if len(live_df) < 24:
             st.error("Not enough data returned from API.")
@@ -256,7 +280,51 @@ if st.button("Predict Using Live API Data"):
         dummy[:, 0] = lstm_pred_scaled[:, 0]
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
 
-        st.success(f"Predicted Next Hour AQI: {round(lstm_pred,2)}")
+        st.metric(
+        label="Predicted Next Hour AQI",
+        value=round(lstm_pred,2)
+        )
+
+        category = get_aqi_category(lstm_pred)
+
+        def get_color(aqi):
+           if aqi <= 50:
+               return "green"
+           elif aqi <= 100:
+               return "yellow"
+           elif aqi <= 200:
+               return "orange"
+           elif aqi <= 300:
+               return "red"
+           else:
+               return "purple"
+
+        color = get_color(lstm_pred)
+
+        st.markdown(
+           f"""
+              <div style="background-color:{color};
+                          padding:20px;
+                          border-radius:10px;
+                          text-align:center;
+                          font-size:20px;
+                          font-weight:bold;
+                          color:white;">
+                    AQI Category: {category}
+              </div>
+              """,
+              unsafe_allow_html=True
+        )
 
     except Exception as e:
         st.error(f"Error fetching API data: {e}")
+
+st.subheader("📈 Last 24 Hour AQI Trend")
+
+fig, ax = plt.subplots()
+
+ax.plot(live_df["aqi_index"], marker='o')
+ax.set_xlabel("Time (Past 24 Hours)")
+ax.set_ylabel("AQI")
+
+st.pyplot(fig)
