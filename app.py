@@ -67,7 +67,7 @@ def fetch_last_24_hours_full(lat, lon):
     #     "SO2": so2[-1]
     # }
 
-    return live_df, city, extra_pollutants
+    return live_df, city
 
 # ---------------- Page Config ----------------
 st.set_page_config(
