@@ -51,12 +51,12 @@ df = df.dropna()
 df = df[df["pm2_5"] < 200]
 df = df[df["pm10"] < 300]
 
-# Adding environmental variables
-# Adding real environmental variables from API
-df["temp_c"] = hourly["temperature_2m"]
-df["humidity"] = hourly["relative_humidity_2m"]
-df["windspeed_kph"] = hourly["windspeed_10m"]
-df["pressure_mb"] = hourly["pressure_msl"]
+# # Adding environmental variables
+# # Adding real environmental variables from API
+# df["temp_c"] = hourly["temperature_2m"]
+# df["humidity"] = hourly["relative_humidity_2m"]
+# df["windspeed_kph"] = hourly["windspeed_10m"]
+# df["pressure_mb"] = hourly["pressure_msl"]
 
 # Creating AQI index (target variable)
 df["aqi_index"] = df["pm2_5"]
