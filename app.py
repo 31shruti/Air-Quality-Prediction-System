@@ -27,6 +27,10 @@ def fetch_last_24_hours_full(lat, lon):
     city = weather_response["name"]
 
     pollution_list = pollution_response["list"]
+    if len(pollution_list) < 24:
+        pollution_list = pollution_list * (24 // len(pollution_list) + 1)
+
+    pollution_list = pollution_list[-24:]
 
     aqi = [item["main"]["aqi"] for item in pollution_list][-24:]
     pm25 = [item["components"]["pm2_5"] for item in pollution_list][-24:]
@@ -39,7 +43,7 @@ def fetch_last_24_hours_full(lat, lon):
     temp = weather_response["main"]["temp"]
     humidity = weather_response["main"]["humidity"]
     pressure = weather_response["main"]["pressure"]
-    windspeed = weather_response["wind"]["speed"]
+    windspeed = weather_response["wind"]["speed"] * 3.6
 
     # Repeat weather values for 24 rows
     live_df = pd.DataFrame({
@@ -356,6 +360,8 @@ if st.button("Predict Using Live API Data"):
 
         st.subheader("Live Data Used for Prediction")
         st.dataframe(live_df.tail())
+        st.write("PM2.5:", live_df["pm2_5"].iloc[-1])
+        st.write("PM10:", live_df["pm10"].iloc[-1])
         st.write("Latest API Row:", live_df.tail(1))
 
         if len(live_df) < 24:
@@ -364,11 +370,11 @@ if st.button("Predict Using Live API Data"):
 
         # Convert AQI category to approximate numeric value
         live_df["aqi_index"] = live_df["aqi_index"].map({
-            1: 30,
-            2: 80,
-            3: 130,
-            4: 180,
-            5: 250
+            1: 25,
+            2: 75,
+            3: 125,
+            4: 175,
+            5: 225
         })
 
         # Scale features
@@ -386,7 +392,7 @@ if st.button("Predict Using Live API Data"):
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
 
         # Clamp AQI range
-        lstm_pred = max(0, min(lstm_pred, 500))
+        lstm_pred = max(10, min(lstm_pred, 350))
 
         st.write("Scaled Prediction:", lstm_pred_scaled)
         st.write("Final AQI:", lstm_pred)
