@@ -315,16 +315,15 @@ if st.button("Predict Using Live API Data"):
               """,
               unsafe_allow_html=True
         )
+        st.subheader("📈 Last 24 Hour AQI Trend")
 
+        fig, ax = plt.subplots()
+
+        ax.plot(live_df["aqi_index"], marker='o')
+        ax.set_xlabel("Time (Past 24 Hours)")
+        ax.set_ylabel("AQI")
+
+        st.pyplot(fig)
     except Exception as e:
         st.error(f"Error fetching API data: {e}")
 
-st.subheader("📈 Last 24 Hour AQI Trend")
-
-fig, ax = plt.subplots()
-
-ax.plot(live_df["aqi_index"], marker='o')
-ax.set_xlabel("Time (Past 24 Hours)")
-ax.set_ylabel("AQI")
-
-st.pyplot(fig)
