@@ -342,8 +342,11 @@ def health_advice(aqi):
 st.markdown("---")
 st.subheader("🌍 Real-Time AQI Forecast (Live API)")
 
-lat = st.number_input("Latitude", value=28.6139)
-lon = st.number_input("Longitude", value=77.2090)
+lat = st.number_input("Enter Latitude", min_value=-90.0, max_value=90.0, step=0.0001)
+lon = st.number_input("Enter Longitude", min_value=-180.0, max_value=180.0, step=0.0001)
+
+st.write(f"Latitude: {lat}")
+st.write(f"Longitude: {lon}")
 
 if st.button("Predict Using Live API Data"):
     try:
