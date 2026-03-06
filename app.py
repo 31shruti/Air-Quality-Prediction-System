@@ -230,6 +230,24 @@ if st.button("Predict Using Live API Data"):
         })
 
         # Scale features
+        # Ensure correct feature order (same as training)
+        live_df = live_df[
+            [
+             "aqi_index",
+             "pm2_5",
+             "pm10",
+             "no2",
+             "so2",
+             "o3",
+             "co",
+             "temp_c",
+             "humidity",
+             "windspeed_kph",
+             "pressure_mb"
+           ]
+        ]
+
+# Scale features
         scaled_data = scaler.transform(live_df)
 
         # Reshape for LSTM (1 sample, 24 timesteps, 7 features)
@@ -239,7 +257,7 @@ if st.button("Predict Using Live API Data"):
         lstm_pred_scaled = lstm_model.predict(lstm_input)
 
         # Inverse scaling
-        dummy = np.zeros((1, 7))
+        dummy = np.zeros((1, 11))
         dummy[:, 0] = lstm_pred_scaled[:, 0]
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
         # --- Pollution reality correction ---

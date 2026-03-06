@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 import time
 
-API_KEY = "88fdc0be867fb9d61766f65db4e848e7"
+API_KEY = "OPENWEATHER_API_KEY"
 
 # Cities dataset
 cities = [
