@@ -279,22 +279,18 @@ with c3:
 # ── Fetch & predict ───────────────────────────────────────────────────────
 def fetch_last_24_hours(lat, lon):
     api_key = st.secrets["OPENWEATHER_API_KEY"]
-    end = int(time.time()); start = end - 24*3600
 
     r = requests.get(
-        f"https://api.openweathermap.org/data/2.5/air_pollution/history"
-        f"?lat={lat}&lon={lon}&start={start}&end={end}&appid={api_key}",
-        timeout=30)
+      f"https://api.openweathermap.org/data/2.5/air_pollution"
+      f"?lat={lat}&lon={lon}&appid={api_key}",
+     timeout=30)
     r.raise_for_status()
     data = r.json()
 
     if "list" not in data or not data["list"]:
         raise ValueError("No pollution data from API. Check your coordinates.")
 
-    pollution_list = data["list"]
-    while len(pollution_list) < 24:
-        pollution_list = pollution_list * 2
-    pollution_list = pollution_list[-24:]
+    pollution_list = data["list"] * 24
 
     w = requests.get(
         f"https://api.openweathermap.org/data/2.5/weather"
