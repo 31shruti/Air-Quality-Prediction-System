@@ -24,7 +24,7 @@ def fetch_last_24_hours_full(lat, lon):
     weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     
     weather_response = requests.get(weather_url).json()
-    city = weather_response["name"]
+    city = weather_response.get("name", "Unknown Location")
 
     pollution_list = pollution_response["list"]
     if len(pollution_list) < 24:
@@ -117,7 +117,7 @@ def forecast_next_24_hours(model, scaler, data):
         pred_scaled = model.predict(lstm_input)
 
         dummy = np.zeros((1,7))
-        dummy[:,0] = pred_scaled[:,0]
+        dummy[:,10] = pred_scaled[:,0]
 
         pred = scaler.inverse_transform(dummy)[0][0]
 
@@ -218,11 +218,11 @@ if st.button("Predict Using Live API Data"):
 
         # Convert AQI category to approximate numeric value
         live_df["aqi_index"] = live_df["aqi_index"].map({
-            1: 20,
-            2: 50,
-            3: 100,
-            4: 150,
-            5: 200
+          1: 30,
+          2: 75,
+          3: 125,
+          4: 200,
+          5: 300
         })
 
         # Scale features
@@ -230,7 +230,6 @@ if st.button("Predict Using Live API Data"):
         
 # Scale features
         expected_features = [
-    "aqi_index",
     "pm2_5",
     "pm10",
     "no2",
@@ -240,7 +239,8 @@ if st.button("Predict Using Live API Data"):
     "temp_c",
     "humidity",
     "windspeed_kph",
-    "pressure_mb"
+    "pressure_mb",
+    "aqi_index"
 ]
 
    # Ensure all columns exist
@@ -261,13 +261,13 @@ if st.button("Predict Using Live API Data"):
 
         # Inverse scaling
         dummy = np.zeros((1, 11))
-        dummy[:, 0] = lstm_pred_scaled[:, 0]
+        dummy[:, 10] = lstm_pred_scaled[:, 0]
         lstm_pred = scaler.inverse_transform(dummy)[0][0]
         # --- Pollution reality correction ---
         pm25 = live_df["pm2_5"].iloc[-1]
         pm10 = live_df["pm10"].iloc[-1]
 
-        pollution_estimate = (pm25 * 1.2) + (pm10 * 0.6)
+        pollution_estimate = (pm25 * 2.5) + (pm10 * 0.8)
 
          # Blend model prediction with real pollution
         lstm_pred = (lstm_pred * 0.6) + (pollution_estimate * 0.4)
