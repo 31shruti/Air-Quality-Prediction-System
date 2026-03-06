@@ -229,6 +229,28 @@ if st.button("Predict Using Live API Data"):
         # Ensure correct feature order (same as training)
         
 # Scale features
+        expected_features = [
+    "aqi_index",
+    "pm2_5",
+    "pm10",
+    "no2",
+    "so2",
+    "o3",
+    "co",
+    "temp_c",
+    "humidity",
+    "windspeed_kph",
+    "pressure_mb"
+]
+
+   # Ensure all columns exist
+        for col in expected_features:
+            if col not in live_df.columns:
+                live_df[col] = 0
+   
+# Ensure correct order
+        live_df = live_df[expected_features]
+
         scaled_data = scaler.transform(live_df)
 
         # Reshape for LSTM (1 sample, 24 timesteps, 7 features)
