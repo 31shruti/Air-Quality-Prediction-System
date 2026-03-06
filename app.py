@@ -48,15 +48,11 @@ def fetch_last_24_hours_full(lat, lon):
     # Repeat weather values for 24 rows
     live_df = pd.DataFrame({
     "aqi_index": aqi,
-    "pm2_5": pm25,
-    "pm10": pm10,
-    "no2": no2,
-    "so2": so2,
-    "o3": o3,
-    "co": co,
     "temp_c": [temp]*24,
     "humidity": [humidity]*24,
     "windspeed_kph": [windspeed]*24,
+    "pm2_5": pm25,
+    "pm10": pm10,
     "pressure_mb": [pressure]*24
    })
     
@@ -120,7 +116,7 @@ def forecast_next_24_hours(model, scaler, data):
 
         pred_scaled = model.predict(lstm_input)
 
-        dummy = np.zeros((1,11))
+        dummy = np.zeros((1,7))
         dummy[:,0] = pred_scaled[:,0]
 
         pred = scaler.inverse_transform(dummy)[0][0]
@@ -231,22 +227,7 @@ if st.button("Predict Using Live API Data"):
 
         # Scale features
         # Ensure correct feature order (same as training)
-        live_df = live_df[
-            [
-             "aqi_index",
-             "pm2_5",
-             "pm10",
-             "no2",
-             "so2",
-             "o3",
-             "co",
-             "temp_c",
-             "humidity",
-             "windspeed_kph",
-             "pressure_mb"
-           ]
-        ]
-
+        
 # Scale features
         scaled_data = scaler.transform(live_df)
 
@@ -301,12 +282,15 @@ if st.button("Predict Using Live API Data"):
         st.subheader("Pollution Distribution")
 
         pollution_data = {
-            "PM2.5": live_df["pm2_5"].iloc[-1],
-            "PM10": live_df["pm10"].iloc[-1],
-            "NO2": live_df["no2"].iloc[-1],
-            "CO": live_df["co"].iloc[-1],
-            "O3": live_df["o3"].iloc[-1],
-            "SO2": live_df["so2"].iloc[-1]
+
+    "PM2.5": live_df["pm2_5"].iloc[-1],
+    "PM10": live_df["pm10"].iloc[-1],
+    "NO2": live_df["no2"].iloc[-1],
+    "CO": live_df["co"].iloc[-1],
+    "O3": live_df["o3"].iloc[-1],
+    "SO2": live_df["so2"].iloc[-1]
+
+
         }
 
         fig2, ax2 = plt.subplots()
