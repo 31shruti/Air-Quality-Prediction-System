@@ -1,53 +1,52 @@
-#-----AQI LSTM Model Training Script-----
+# ----- AQI LSTM Model Training Script -----
+
 print("Step 1: Script is running")
+
 import pandas as pd
-import joblib
-from sklearn.metrics import mean_squared_error
 import numpy as np
-import requests
+import joblib
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras.models import Sequential # type: ignore
+from tensorflow.keras.layers import LSTM, Dense # type: ignore
+import os
 
-# generate random locations so model learns from many places
-num_locations = 15
+# create models folder if it doesn't exist
+os.makedirs("models", exist_ok=True)
 
-lats = np.random.uniform(-60, 60, num_locations)
-lons = np.random.uniform(-180, 180, num_locations)
+# ---------------- AQI Calculation ---------------- #
 
-locations = list(zip(lats, lons))
+def calculate_aqi(pm25):
 
-all_data = []
+    if pm25 <= 30:
+        return (50/30)*pm25
 
-for lat, lon in locations:
+    elif pm25 <= 60:
+        return ((100-51)/(60-31))*(pm25-31)+51
 
-    print("Fetching data for:", lat, lon)
+    elif pm25 <= 90:
+        return ((200-101)/(90-61))*(pm25-61)+101
 
-    url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,temperature_2m,relative_humidity_2m,windspeed_10m,pressure_msl&start_date=2023-01-01&end_date=2024-12-31"
+    elif pm25 <= 120:
+        return ((300-201)/(120-91))*(pm25-91)+201
 
-    response = requests.get(url)
-    data = response.json()
+    elif pm25 <= 250:
+        return ((400-301)/(250-121))*(pm25-121)+301
 
-    if "hourly" not in data:
-        continue
+    else:
+        return 500
 
-    hourly = data["hourly"]
 
-    temp_df = pd.DataFrame({
-        "pm2_5": hourly["pm2_5"],
-        "pm10": hourly["pm10"],
-        "no2": hourly["nitrogen_dioxide"],
-        "co": hourly["carbon_monoxide"],
-        "o3": hourly["ozone"],
-        "so2": hourly["sulphur_dioxide"],
-        "temp_c": hourly["temperature_2m"],
-        "humidity": hourly["relative_humidity_2m"],
-        "windspeed_kph": hourly["windspeed_10m"],
-        "pressure_mb": hourly["pressure_msl"]
-    })
+# ---------------- Load Dataset ---------------- #
 
-    all_data.append(temp_df)
+print("Step 2: Loading dataset")
 
-df = pd.concat(all_data, ignore_index=True)
+df = pd.read_csv("training_data.csv")
+
 df = df.dropna()
 
+# remove extreme outliers
 df = df[df["pm2_5"] < 200]
 df = df[df["pm10"] < 300]
 
@@ -59,28 +58,29 @@ df = df[df["pm10"] < 300]
 # df["pressure_mb"] = hourly["pressure_msl"]
 
 # Creating AQI index (target variable)
-df["aqi_index"] = df["pm2_5"]
+df["aqi_index"] = df["pm2_5"].apply(calculate_aqi)
 
 print("API dataset created successfully.")
 print(df.head())
 
 # Selecting only required features for prediction
-FEATURES = [
-    'aqi_index',
-    'temp_c',
-    'humidity',
-    'windspeed_kph',
-    'pm2_5',
-    'pm10',
-    'no2',
-    'co',
-    'o3',
-    'so2',
-    'pressure_mb'
+features = [
+    "pm2_5",
+    "pm10",
+    "no2",
+    "so2",
+    "o3",
+    "co",
+    "temp_c",
+    "humidity",
+    "windspeed_kph",
+    "pressure_mb"
 ]
 
+target = "aqi_index"
+
 # Keeping only selected columns
-df = df[FEATURES]
+df = df[features + [target]]
 
 print("Selected features:")
 print(df.head())
@@ -115,7 +115,7 @@ y = []
 # Creating sliding window sequences
 for i in range(sequence_length, len(scaled_data)):
     X.append(scaled_data[i-sequence_length:i])
-    y.append(scaled_data[i][0])  # predicting AQI (first column)
+    y.append(scaled_data[i][-1]) # predicting AQI (first column)
 
 X = np.array(X)
 y = np.array(y)
@@ -167,9 +167,9 @@ lr_pred = lr.predict(X_test_flat)
 
 # Converting predictions back to real AQI
 dummy_lr = np.zeros((len(lr_pred), scaled_data.shape[1]))
-dummy_lr[:, 0] = lr_pred
+dummy_lr[:, -1] = lr_pred
 
-lr_pred_real = scaler.inverse_transform(dummy_lr)[:, 0]
+lr_pred_real = scaler.inverse_transform(dummy_lr)[:, -1]
 
 # Converting actual values back
 dummy_actual_lr = np.zeros((len(y_test_flat), scaled_data.shape[1]))
@@ -187,7 +187,7 @@ print("MAE:", mae_lr)
 print("RMSE:", rmse_lr)
 print("R2 Score:", r2_lr)
 
-joblib.dump(lr, "linear_model.pkl")
+joblib.dump(lr, "models/linear_model.pkl")
 print("Linear Regression model saved.")
 
 #-----Building LSTM Model-----
@@ -229,7 +229,7 @@ print("MAE:", mae_rf)
 print("RMSE:", rmse_rf)
 print("R2 Score:", r2_rf)
 
-joblib.dump(rf, "random_forest_model.pkl")
+joblib.dump(rf, "models/random_forest_model.pkl")
 print("Random Forest model saved.")
 
 from tensorflow.keras.models import Sequential # type: ignore
@@ -256,7 +256,7 @@ print("Step 7: Training model...")
 history = model.fit(
     X_train,
     y_train,
-    epochs=10,
+    epochs=25,
     batch_size=32,
     validation_data=(X_test, y_test)
 )
@@ -316,21 +316,21 @@ plt.legend()
 plt.tight_layout()
 
 plt.savefig("results_lstm.png")
-plt.show()
+plt.close()
 
 print("Prediction graph saved as results_lstm.png")
 
 #-----Saving Model and Scaler-----
 print("Step 10: Saving model...")
 
-model.save("aqi_lstm_model.h5")
+model.save("models/aqi_lstm_model.h5")
 
 print("Model saved successfully.")
 
 import joblib
 
 # Saving scaler for future predictions in Streamlit app
-joblib.dump(scaler, "scaler.save")
+joblib.dump(scaler, "models/scaler.pkl")
 
 print("Scaler saved successfully.")
 
@@ -357,7 +357,8 @@ metrics = {
     "LSTM": rmse
 }
 
-joblib.dump(metrics, "model_metrics.pkl")
+joblib.dump(metrics, "models/model_metrics.pkl")
 
 print("Model metrics saved successfully.")
+print("\nAQI Training Pipeline Completed Successfully 🚀")
 

@@ -47,22 +47,20 @@ def fetch_last_24_hours_full(lat, lon):
 
     # Repeat weather values for 24 rows
     live_df = pd.DataFrame({
-        "aqi_index": aqi,
-        "temp_c": [temp]*24,
-        "humidity": [humidity]*24,
-        "windspeed_kph": [windspeed]*24,
-        "pm2_5": pm25,
-        "pm10": pm10,
-        "pressure_mb": [pressure]*24
-     })
+    "aqi_index": aqi,
+    "pm2_5": pm25,
+    "pm10": pm10,
+    "no2": no2,
+    "so2": so2,
+    "o3": o3,
+    "co": co,
+    "temp_c": [temp]*24,
+    "humidity": [humidity]*24,
+    "windspeed_kph": [windspeed]*24,
+    "pressure_mb": [pressure]*24
+   })
     
-    extra_pollutants = {
-        "NO2": no2[-1],
-        "CO": co[-1],
-        "O3": o3[-1],
-        "SO2": so2[-1]
-    }
-
+   
     return live_df, city, extra_pollutants
 
 # ---------------- Page Config ----------------
@@ -122,7 +120,7 @@ def forecast_next_24_hours(model, scaler, data):
 
         pred_scaled = model.predict(lstm_input)
 
-        dummy = np.zeros((1,7))
+        dummy = np.zeros((1,11))
         dummy[:,0] = pred_scaled[:,0]
 
         pred = scaler.inverse_transform(dummy)[0][0]
@@ -143,14 +141,38 @@ def forecast_next_24_hours(model, scaler, data):
 # ---------------- Load Models ----------------
 @st.cache_resource
 def load_models():
-    lstm_model = load_model("aqi_lstm_model.h5", compile=False)
-    lr_model = joblib.load("linear_model.pkl")
-    rf_model = joblib.load("random_forest_model.pkl")
-    scaler = joblib.load("scaler.save")
-    metrics = joblib.load("model_metrics.pkl")   # ← ADD THIS LINE
+    lstm_model = load_model("models/aqi_lstm_model.h5", compile=False)
+    lr_model = joblib.load("models/linear_model.pkl")
+    rf_model = joblib.load("models/random_forest_model.pkl")
+    scaler = joblib.load("models/scaler.pkl")
+    metrics = joblib.load("models/model_metrics.pkl")
     return lstm_model, lr_model, rf_model, scaler, metrics
 
 lstm_model, lr_model, rf_model, scaler, metrics = load_models()
+
+st.markdown("---")
+st.subheader("📊 Model Performance Comparison")
+
+metrics_df = pd.DataFrame(
+    list(metrics.items()),
+    columns=["Model", "RMSE"]
+)
+
+fig = go.Figure(
+    data=[
+        go.Bar(
+            x=metrics_df["Model"],
+            y=metrics_df["RMSE"]
+        )
+    ]
+)
+
+fig.update_layout(
+    xaxis_title="Model",
+    yaxis_title="RMSE (Lower is Better)"
+)
+
+st.plotly_chart(fig)
  
 def health_advice(aqi):
 
