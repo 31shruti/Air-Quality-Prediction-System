@@ -201,7 +201,7 @@ lon = st.number_input("Longitude", value=77.2090)
 if st.button("Predict Using Live API Data"):
     try:
         # Fetch full feature dataframe
-        live_df, city, extra_pollutants = fetch_last_24_hours_full(lat, lon)
+        live_df, city = fetch_last_24_hours_full(lat, lon)
         st.subheader(f"Location: {city}")
 
         # Map showing selected location
@@ -285,10 +285,10 @@ if st.button("Predict Using Live API Data"):
         pollution_data = {
             "PM2.5": live_df["pm2_5"].iloc[-1],
             "PM10": live_df["pm10"].iloc[-1],
-            "NO2": extra_pollutants["NO2"],
-            "CO": extra_pollutants["CO"],
-            "O3": extra_pollutants["O3"],
-            "SO2": extra_pollutants["SO2"]
+            "NO2": live_df["no2"].iloc[-1],
+            "CO": live_df["co"].iloc[-1],
+            "O3": live_df["o3"].iloc[-1],
+            "SO2": live_df["so2"].iloc[-1]
         }
 
         fig2, ax2 = plt.subplots()
