@@ -1,5 +1,6 @@
 # ---------------- AQI Forecasting Web App ----------------
 
+# Section 1 Imported important libraries 
 import streamlit as st  # type: ignore
 import numpy as np
 import pandas as pd
@@ -10,14 +11,13 @@ import requests
 import time
 import plotly.graph_objects as go  # type: ignore
 
-# ── Page Config ───────────────────────────────────────────────────────────
+# Section 2 Configuration of page and title 
 st.set_page_config(
     page_title="AQI Forecast App",
-    page_icon="🌿",
     layout="wide"
 )
 
-# ── Simple clean CSS ──────────────────────────────────────────────────────
+# Section 3 used custom css for app ; used poppins font and white card 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
@@ -112,7 +112,8 @@ p, span, div, label, li, td, th, h1, h2, h3, h4, h5, h6 {
 </style>
 """, unsafe_allow_html=True)
 
-# ── Helpers ───────────────────────────────────────────────────────────────
+# Section 4 used helper function for aqi category and health advice
+# these functions took an aqi number and return color, label, and advice
 def get_aqi_category(aqi):
     if aqi <= 50:  return "Good",            "#2ecc71", "#e8f8f2"
     if aqi <= 100: return "Moderate",         "#f39c12", "#fef9e7"
@@ -122,13 +123,15 @@ def get_aqi_category(aqi):
     return               "Hazardous",         "#7b241c", "#f9ebea"
 
 def health_advice(aqi):
-    if aqi <= 50:  return "😊 Air is clean! Great day for outdoor activities."
-    if aqi <= 100: return "😐 Air is okay. Sensitive people should be cautious."
-    if aqi <= 150: return "😷 Sensitive groups should reduce outdoor time."
-    if aqi <= 200: return "⚠️ Unhealthy for everyone. Limit outdoor activities."
-    if aqi <= 300: return "🚨 Very unhealthy. Stay indoors if possible."
-    return               "☠️ Hazardous! Avoid going outside completely."
+    if aqi <= 50:  return "Air is clean! Great day for outdoor activities."
+    if aqi <= 100: return "Air is okay. Sensitive people should be cautious."
+    if aqi <= 150: return "Sensitive groups should reduce outdoor time."
+    if aqi <= 200: return "Unhealthy for everyone. Limit outdoor activities."
+    if aqi <= 300: return "Very unhealthy. Stay indoors if possible."
+    return               "Hazardous! Avoid going outside completely."
 
+# Section 5 aqi formula and city PM2.5 caps
+# these are same formulas as used in train.py so predictions can be consistent
 def calculate_aqi(pm25):
     if pm25 <= 30:  return (50 / 30) * pm25
     if pm25 <= 60:  return ((100-51)  / (60-31))  * (pm25-31)  + 51
@@ -137,6 +140,7 @@ def calculate_aqi(pm25):
     if pm25 <= 250: return ((400-301) / (250-121))* (pm25-121) + 301
     return 500
 
+# per city caps to stop api spike value from giving wrong aqi
 CITY_PM25_CAPS = {
     "Shimla": 35, "Manali": 30, "Leh": 25, "Gangtok": 30, "Aizawl": 30,
     "London": 30, "Tokyo": 35, "New York": 25, "Paris": 30, "Sydney": 20,
@@ -148,7 +152,8 @@ EXPECTED_FEATURES = [
     "temp_c","humidity","windspeed_kph","pressure_mb",
 ]
 
-# ── Load Models ───────────────────────────────────────────────────────────
+# Section 6 loaded all trained models and scaler
+# used cache_resources so models load only once and stay in memory
 @st.cache_resource
 def load_models():
     lstm_model = load_model("models/aqi_lstm_model.h5", compile=False)
@@ -163,24 +168,25 @@ lstm_model, lr_model, rf_model, scaler, metrics, meta = load_models()
 N_COLS  = meta["N_COLS"]
 AQI_COL = meta["AQI_COL"]
 
+# helper to convert scaled predictions back to real aqi value
 def inverse_aqi(scaled_values):
     dummy = np.zeros((len(scaled_values), N_COLS))
     dummy[:, AQI_COL] = scaled_values
     return scaler.inverse_transform(dummy)[:, AQI_COL]
 
-# ── Sidebar ───────────────────────────────────────────────────────────────
+# Section 7 this is side-bar with about info and aqi scale legend
 with st.sidebar:
-    st.markdown("## 🌿 About This App")
+    st.markdown("## About This App")
     st.markdown("""
-    This app predicts Air Quality Index (AQI) using machine learning models trained on real pollution data.
+    This app predicts Air Quality Index (AQI) using machine learning models trained on real pollution data fetched from api.
 
     **Models used:**
-    - 🧠 LSTM (Deep Learning)
-    - 🌳 Random Forest
-    - 📈 Linear Regression
+    - LSTM (Deep Learning)
+    - Random Forest
+    - Linear Regression
 
     **How it works:**
-    1. Enter your location coordinates
+    1. Enter your location coordinates, that are longitude and latitude 
     2. App fetches last 24 hours of air quality data
     3. LSTM model predicts next hour AQI
     4. You also get a 24-hour forecast
@@ -206,25 +212,25 @@ with st.sidebar:
         </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("<div style='font-size:0.75rem;color:#aaa;'>Made by a CS student 👨‍💻<br>Data: OpenWeatherMap API</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.75rem;color:#aaa;'>Data: OpenWeatherMap API</div>", unsafe_allow_html=True)
 
-# ── Header ────────────────────────────────────────────────────────────────
-st.markdown("# 🌍 AQI Forecast Dashboard")
+# Section 8 set app header and title
+st.markdown("# AQI Forecast Dashboard")
 st.markdown("<p style='color:#666;margin-top:-12px;'>Predicting air quality using LSTM deep learning + real-time data</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ── Model Performance ─────────────────────────────────────────────────────
-st.markdown("### 📊 How well do the models perform?")
+# Section 9 added model performance cards and RMSE chart
+st.markdown("### How well do the models perform?")
 
 metrics_df = pd.DataFrame(metrics).T.reset_index().rename(columns={"index": "Model"})
 
-col1, col2, col3 = st.columns(3)
-icons = {"Linear Regression": "📈", "Random Forest": "🌳", "LSTM": "🧠"}
-colors = {"Linear Regression": "#4cc9f0", "Random Forest": "#4361ee", "LSTM": "#7209b7"}
+col1, col2, col3, col4 = st.columns(4)
+icons  = {"Persistence": " ","Linear Regression": "1", "Random Forest": "2", "LSTM": "3"}
+colors = {"Persistence": "#aaaaaa", "Linear Regression": "#4cc9f0", "Random Forest": "#4361ee", "LSTM": "#7209b7"}
 
-for col, (_, row) in zip([col1, col2, col3], metrics_df.iterrows()):
+for col, (_, row) in zip([col1, col2, col3, col4], metrics_df.iterrows()):
     clr  = colors.get(row["Model"], "#4361ee")
-    icon = icons.get(row["Model"], "🤖")
+    icon = icons.get(row["Model"], "")
     col.markdown(f"""
     <div class='card' style='border-top: 4px solid {clr};'>
         <div style='font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;'>{icon} {row["Model"]}</div>
@@ -244,7 +250,7 @@ for col, (_, row) in zip([col1, col2, col3], metrics_df.iterrows()):
         </div>
     </div>""", unsafe_allow_html=True)
 
-# Simple RMSE bar chart
+# used RMSE bar-chart to visually compare all models
 fig_bar = go.Figure(go.Bar(
     x=metrics_df["Model"],
     y=metrics_df["RMSE"],
@@ -265,8 +271,8 @@ st.plotly_chart(fig_bar, use_container_width=True)
 
 st.markdown("---")
 
-# ── Live Prediction ───────────────────────────────────────────────────────
-st.markdown("### 🔍 Get Live AQI Prediction")
+# Section 10 used to take location input fields for live prediction
+st.markdown("### Get Live AQI Prediction")
 st.markdown("<p style='color:#666;font-size:0.9rem;'>Enter coordinates of any city to fetch real-time data and predict AQI</p>", unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns([1, 1, 1])
@@ -274,23 +280,30 @@ with c1: lat = st.number_input("Latitude",  value=28.6139, format="%.4f", help="
 with c2: lon = st.number_input("Longitude", value=77.2090, format="%.4f", help="e.g. 77.2090 for Delhi")
 with c3:
     st.markdown("<br>", unsafe_allow_html=True)
-    run = st.button("🔍 Predict AQI", use_container_width=True)
+    run = st.button(" Predict AQI", use_container_width=True)
 
-# ── Fetch & predict ───────────────────────────────────────────────────────
+# Section 11 used function to fetch last 24 hours of pollution and weather data 
+# here the OpenWeatherMAp api has been called and returned a clean dataframe with 24 rows 
 def fetch_last_24_hours(lat, lon):
     api_key = st.secrets["OPENWEATHER_API_KEY"]
+    end = int(time.time()); start = end - 24*3600
 
     r = requests.get(
-      f"https://api.openweathermap.org/data/2.5/air_pollution"
-      f"?lat={lat}&lon={lon}&appid={api_key}",
-     timeout=30)
+        f"https://api.openweathermap.org/data/2.5/air_pollution/history"
+        f"?lat={lat}&lon={lon}&start={start}&end={end}&appid={api_key}",
+        timeout=30)
     r.raise_for_status()
     data = r.json()
 
     if "list" not in data or not data["list"]:
         raise ValueError("No pollution data from API. Check your coordinates.")
 
-    pollution_list = data["list"] * 24
+    pollution_list = data["list"]
+    while len(pollution_list) < 24:
+        pollution_list = pollution_list * 2
+    pollution_list = pollution_list[-24:]
+
+    # fetched current weather for temperature, humidity, wind and pressure
 
     w = requests.get(
         f"https://api.openweathermap.org/data/2.5/weather"
@@ -316,11 +329,16 @@ def fetch_last_24_hours(lat, lon):
         })
 
     live_df = pd.DataFrame(rows)[EXPECTED_FEATURES + ["aqi_index"]]
+
+
+    # applied PM2.5 cap for the detected city to fix any api spikes
     pm25_cap = CITY_PM25_CAPS.get(city, 150)
     live_df["pm2_5"] = live_df["pm2_5"].clip(upper=pm25_cap)
     live_df["aqi_index"] = live_df["pm2_5"].apply(calculate_aqi)
     return live_df, city, {"temp": temp, "humidity": humidity, "windspeed": windspeed, "pressure": pressure}
 
+# Section 12 function to generate 24 hrs rolling forecast
+# feeded lstm prediction back into the window step y step for 24 hrs
 def forecast_next_24_hours(model, scaler, live_df):
     predictions = []; window = live_df.copy()
     for _ in range(24):
@@ -332,16 +350,17 @@ def forecast_next_24_hours(model, scaler, live_df):
         window  = pd.concat([window.iloc[1:], pd.DataFrame([new_row])], ignore_index=True)
     return predictions
 
+# Section 13 run prediction when button is clicked 
 if run:
     try:
         with st.spinner("Fetching data from OpenWeatherMap..."):
             live_df, city, wx = fetch_last_24_hours(lat, lon)
 
         # City name
-        st.markdown(f"### 📍 Results for **{city}**")
+        st.markdown(f"### Results for **{city}**")
 
-        # Weather strip
-        st.markdown("#### 🌤 Current Weather")
+        # Section 13a showing current weather cards
+        st.markdown("#### Current Weather")
         wc1, wc2, wc3, wc4 = st.columns(4)
         for col, label, val, unit in [
             (wc1, "Temperature",  f"{wx['temp']:.1f}",      "°C"),
@@ -358,15 +377,15 @@ if run:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Predict
+        # Section 13b run lstm model and show predicted aqi
         scaled_data = scaler.transform(live_df)
         pred_scaled = lstm_model.predict(np.expand_dims(scaled_data, axis=0), verbose=0)[0, 0]
         lstm_pred   = float(np.clip(inverse_aqi(np.array([pred_scaled]))[0], 0, 500))
 
         cat, clr, bg = get_aqi_category(lstm_pred)
 
-        # AQI result
-        st.markdown("#### 🎯 Predicted AQI (Next Hour)")
+        
+        st.markdown("#### Predicted AQI (Next Hour)")
         r1, r2 = st.columns([1, 1.5])
 
         with r1:
@@ -408,8 +427,8 @@ if run:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Pollution breakdown
-        st.markdown("#### 🧪 Pollution Breakdown")
+        # Section 13c showing pollutant breakdown bar chart
+        st.markdown("#### Pollution Breakdown")
         poll_vals = {
             "PM2.5": live_df["pm2_5"].iloc[-1],
             "PM10":  live_df["pm10"].iloc[-1],
@@ -437,7 +456,7 @@ if run:
         )
         st.plotly_chart(fig_poll, use_container_width=True)
 
-        # Dominant pollutant
+        # Dominant pollutant; that means showing which pollutant is highest and what it likely means
         dominant = max(poll_vals, key=poll_vals.get)
         insights = {
             "PM2.5": "Fine dust particles — likely from traffic or burning.",
@@ -451,8 +470,8 @@ if run:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Historical trend
-        st.markdown("#### 📈 AQI — Last 24 Hours")
+        # Section 13d showing last 24 hrs historical aqi trend
+        st.markdown("#### AQI — Last 24 Hours")
         hours    = [f"-{23-i}h" for i in range(24)]
         aqi_vals = live_df["aqi_index"].values
 
@@ -477,9 +496,10 @@ if run:
             showlegend=False,
         )
         st.plotly_chart(fig_hist, use_container_width=True)
+        st.caption("Note: Historical variation may appear flat on the free API plan. A paid OpenWeatherMap plan provides real 24-hour historical data.")
 
-        # 24h forecast
-        st.markdown("#### 🔮 24-Hour AQI Forecast")
+        # Section 13e generated and showed 24 hour forecast chart
+        st.markdown("#### 24-Hour AQI Forecast")
         st.caption("Predicted using LSTM model with rolling 24-hour window")
 
         with st.spinner("Generating forecast..."):
@@ -508,8 +528,8 @@ if run:
         )
         st.plotly_chart(fig_fore, use_container_width=True)
 
-        # Forecast table
-        with st.expander("📋 See full forecast table"):
+        # Section 13f for expandable forecast table with all 24 hrs
+        with st.expander("See full forecast table"):
             fcols = st.columns(6)
             for i, (h, v) in enumerate(zip(f_hours, forecast)):
                 cat_label, c, bg_c = get_aqi_category(v)
@@ -521,36 +541,36 @@ if run:
                     <div style='font-size:0.6rem;color:{c};'>{cat_label}</div>
                 </div>""", unsafe_allow_html=True)
 
-        # Map
-        st.markdown("#### 🗺 Location")
+        # Section 13g showed location on map
+        st.markdown("#### Location")
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
         st.caption("Make sure your coordinates are correct and your API key is valid.")
 
-# ── Footer ────────────────────────────────────────────────────────────────
+# this is footer section sowing how this works explanation
 st.markdown("---")
-st.markdown("### 🔬 How This Works")
+st.markdown("### How This Works")
 
 col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("""
-    **📥 Data Collection**
+    **Data Collection**
     
     Air quality data collected from OpenWeatherMap across 40+ cities in India and worldwide. Features include PM2.5, PM10, NO2, SO2, O3, CO and weather variables.
     """)
 with col2:
     st.markdown("""
-    **🧠 Model Training**
+    **Model Training**
     
     Three models trained: Linear Regression and Random Forest as baselines, plus an LSTM deep learning model that learns from 24-hour sequences of pollution data.
     """)
 with col3:
     st.markdown("""
-    **📡 Live Prediction**
+    **Live Prediction**
     
     App fetches last 24 hours of real data for your location, scales it using the same scaler from training, and passes it through the LSTM to predict next-hour AQI.
     """)
 
-st.markdown("<br><div style='text-align:center;color:#aaa;font-size:0.8rem;'>Built as a final year ML project · Data from OpenWeatherMap API</div>", unsafe_allow_html=True)
+st.markdown("<br><div style='text-align:center;color:#aaa;font-size:0.8rem;'> Data from OpenWeatherMap API</div>", unsafe_allow_html=True)

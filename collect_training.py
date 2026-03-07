@@ -1,17 +1,19 @@
+#----Section 1 Imported Important Libraries----
 import requests
 import pandas as pd
 import time
 import os
 from dotenv import load_dotenv # type: ignore
 
-# Load API key from .env file (create a .env file with: OPENWEATHER_API_KEY=your_key_here)
+
+#----Section 2 Loaded API key from .env file----
 load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 if not API_KEY:
     raise ValueError("OPENWEATHER_API_KEY not found. Add it to your .env file.")
 
-# Cities dataset
+#----Section 3 Defined Cities with longitude & latitude Coordinates----
 cities = [
 
     # North India
@@ -71,18 +73,20 @@ cities = [
     ("Aizawl",      23.7271,  92.7176),
 ]
 
+#----Section 4 Initialized Empty list to store all rows----
 rows = []
 
+#----Section 5 Looped through each city and fetched data----
 for city, lat, lon in cities:
 
     print(f"Collecting data for: {city}")
 
     end   = int(time.time())
-    start = end - (5 * 24 * 60 * 60)   # last 5 days
+    start = end - (30 * 24 * 60 * 60)   # last 30 days
 
-    # ---------- Pollution history ----------
+    # ----Section 5.1 fetched pollution history from Api----
     pollution_url = (
-        f"http://api.openweathermap.org/data/2.5/air_pollution/history"
+        f"https://api.openweathermap.org/data/2.5/air_pollution/history"
         f"?lat={lat}&lon={lon}&start={start}&end={end}&appid={API_KEY}"
     )
 
@@ -92,19 +96,18 @@ for city, lat, lon in cities:
         pollution_data = pollution_resp.json()
 
         if "list" not in pollution_data:
-            print(f"  ⚠ No pollution data for {city}, skipping.")
+            print(f" No pollution data for {city}, skipping.")
             continue
 
     except Exception as e:
-        print(f"  ✗ Pollution fetch failed for {city}: {e}")
+        print(f" Pollution fetch failed for {city}: {e}")
         continue
 
-    # ---------- Weather per hour (using history endpoint) ----------
-    # We fetch one weather snapshot per hour from the historical weather API
-    # so that temp/humidity/wind actually vary across the dataset.
+    # ----Section 5.2 fetched historical weather data per hour----
+    # fetched weather snapshot per hour from the historical weather API so that temp/humidity/wind actually vary across the dataset.
     weather_rows = {}
 
-    for hour_offset in range(0, 5 * 24, 6):      # every 6 hours over 5 days
+    for hour_offset in range(0, 30 * 24, 6):      # every 6 hours over 30 days
         ts = start + hour_offset * 3600
         hist_url = (
             f"https://api.openweathermap.org/data/2.5/onecall/timemachine"
@@ -121,9 +124,9 @@ for city, lat, lon in cities:
                         "pressure_mb":   h.get("pressure", 1013),
                     }
         except Exception:
-            pass    # fall through to snapshot fallback below
+            pass    # fell through to snapshot fallback below
 
-    # Fallback: single current-weather snapshot if historical fetch failed
+    #----Section 5.3 Fallback to current weather if historical fetch failed----
     fallback_weather = {"temp_c": 25, "humidity": 50, "windspeed_kph": 10, "pressure_mb": 1013}
     if not weather_rows:
         try:
@@ -139,13 +142,13 @@ for city, lat, lon in cities:
                 "pressure_mb":   w["main"]["pressure"],
             }
         except Exception as e:
-            print(f"  ⚠ Weather fallback failed for {city}: {e}")
+            print(f" Weather fallback failed for {city}: {e}")
 
-    # ---------- Build rows ----------
+    # ----Section 5.4 Matched weather to each pollution timestamp and build rows----
     for item in pollution_data["list"]:
         ts = item["dt"]
 
-        # Nearest weather snapshot (within ±3 h), else fallback
+        # Picked nearest weather snapshot (within ±3 h), else fallback is used
         if weather_rows:
             nearest_ts = min(weather_rows.keys(), key=lambda t: abs(t - ts))
             wx = weather_rows[nearest_ts] if abs(nearest_ts - ts) <= 10800 else fallback_weather
@@ -167,12 +170,12 @@ for city, lat, lon in cities:
             "humidity":       wx["humidity"],
             "windspeed_kph":  wx["windspeed_kph"],
             "pressure_mb":    wx["pressure_mb"],
-            # aqi_index is NOT saved here — train.py calculates it consistently
+            # aqi_index is NOT saved here, train.py calculated it consistently
         })
 
-    sample_pm25 = [round(item["components"]["pm2_5"], 1) for item in pollution_data["list"][:3]]
-    print(f"  ✓ {len(pollution_data['list'])} rows added for {city} | pm2_5 sample: {sample_pm25}")
+    print(f" {len(pollution_data['list'])} rows added for {city}")
 
+#----Section 6 Saved all collected data to CSV----
 df = pd.DataFrame(rows)
 df.to_csv("training_data.csv", index=False)
 
