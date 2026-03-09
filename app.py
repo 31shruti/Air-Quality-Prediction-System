@@ -152,6 +152,24 @@ EXPECTED_FEATURES = [
     "temp_c","humidity","windspeed_kph","pressure_mb",
 ]
 
+#Section 5a converted city name to Lat Lon using geocoding API
+# added this so there would be no need to type Lon and Lat manually
+def get_coordinates(city_name):
+    api_key = st.secrets["OPENWEATHER_API_KEY"]
+    r = requests.get(
+        f"https://api.openweathermap.org/geo/1.0/direct"
+        f"?q={city_name}&limit=1&appid={api_key}",
+        timeout=10
+    )
+    data = r.json()
+    if not data:
+        raise ValueError(f"Couldnt find '{city_name}'. Please check spelling.")
+    lat  = data[0]["lat"]
+    lon  = data[0]["lon"]
+    name = data[0].get("name", city_name)
+    return lat, lon, name
+
+
 # Section 6 loaded all trained models and scaler
 # used cache_resources so models load only once and stay in memory
 @st.cache_resource
@@ -271,16 +289,20 @@ st.plotly_chart(fig_bar, use_container_width=True)
 
 st.markdown("---")
 
-# Section 10 used to take location input fields for live prediction
+# Section 10 City name search box
 st.markdown("### Get Live AQI Prediction")
-st.markdown("<p style='color:#666;font-size:0.9rem;'>Enter coordinates of any city to fetch real-time data and predict AQI</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#666;font-size:0.9rem;'>Type a city name below and click predict</p>", unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([1, 1, 1])
-with c1: lat = st.number_input("Latitude",  value=28.6139, format="%.4f", help="e.g. 28.6139 for Delhi")
-with c2: lon = st.number_input("Longitude", value=77.2090, format="%.4f", help="e.g. 77.2090 for Delhi")
-with c3:
+c1, c2 = st.columns([2, 1])
+with c1:
+    city_input = st.text_input(
+        "City Name",
+        placeholder="try Delhi, Mumbai, London, Tokyo ..."
+    )
+with c2:
     st.markdown("<br>", unsafe_allow_html=True)
-    run = st.button(" Predict AQI", use_container_width=True)
+    run = st.button("Predict AQI", use_container_width=True)
+
 
 # Section 11 used function to fetch last 24 hours of pollution and weather data 
 # here the OpenWeatherMAp api has been called and returned a clean dataframe with 24 rows 
@@ -352,12 +374,23 @@ def forecast_next_24_hours(model, scaler, live_df):
 
 # Section 13 run prediction when button is clicked 
 if run:
+    # first checks if user actually typed something
+    if not city_input.strip():
+        st.warning("Please type a city name first.")
+        st.stop()
     try:
-        with st.spinner("Fetching data from OpenWeatherMap..."):
+        # step 1 - get coordinates from city name
+        with st.spinner(f"Searching for {city_input}..."):
+            lat, lon, resolved_city = get_coordinates(city_input.strip())
+
+        st.caption(f"Found: {resolved_city} ({lat:.4f}, {lon:.4f})")
+
+        # step 2 - fetch pollution data for those coordinates
+        with st.spinner("Fetching air quality data..."):
             live_df, city, wx = fetch_last_24_hours(lat, lon)
 
-        # City name
         st.markdown(f"### Results for **{city}**")
+
 
         # Section 13a showing current weather cards
         st.markdown("#### Current Weather")
