@@ -51,6 +51,11 @@ if "city" in df.columns:
 # calculated AQI from the cleaned PM2.5 values 
 df["aqi_index"] = df["pm2_5"].apply(calculate_aqi)
 
+# CHANGE 1: kept a copy of df with city column BEFORE dropping it in Section 5
+# we need it in Section 7 to create sequences per city separately
+# without this, city column is gone and we cant split sequences by city
+df_original = df.copy()
+
 print("Dataset loaded. Shape:", df.shape)
 print(df.head())
 
@@ -88,17 +93,29 @@ scaled_data = scaler.fit_transform(df)
 print("Scaled. First 3 rows:")
 print(scaled_data[:3])
 
-#----Section 7 created 24 hours sliding window sequence----
-# each sample = last 24 hours of data, label = AQi of next hour
-# this is how we turn tabular data into time series input for lstm
+#----Section 7 Created 24 Hour Sliding Window Sequences Per City----
+# CHANGE 2: old code was creating sequences across ALL cities mixed together
+# that meant lstm was seeing delhi hour 720 -> london hour 1 as a real time series
+# which is completely wrong and was making predictions garbage for every city
+# fix: loop city by city, create sequences only within that city, then combine
 print("Step 4: Creating sequences...")
 
 SEQ_LEN = 24
 X, y = [], []
 
-for i in range(SEQ_LEN, len(scaled_data)):
-    X.append(scaled_data[i - SEQ_LEN : i])         
-    y.append(scaled_data[i][AQI_COL])               
+for city_name in df_original["city"].unique():
+    # get only rows belonging to this city
+    city_mask   = df_original["city"].values == city_name
+    city_scaled = scaled_data[city_mask]
+
+    # skip if city has too few rows to make even one sequence
+    if len(city_scaled) < SEQ_LEN + 1:
+        print(f"  Skipping {city_name} — not enough rows ({len(city_scaled)})")
+        continue
+
+    for i in range(SEQ_LEN, len(city_scaled)):
+        X.append(city_scaled[i - SEQ_LEN : i])   # 24 rows of all 11 columns
+        y.append(city_scaled[i][AQI_COL])         # next hour AQI value
 
 X = np.array(X)   
 y = np.array(y)   

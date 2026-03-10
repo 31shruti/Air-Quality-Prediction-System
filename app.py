@@ -109,6 +109,35 @@ p, span, div, label, li, td, th, h1, h2, h3, h4, h5, h6 {
 [data-testid="stSidebar"] * {
     color: #111111 !important;
 }
+
+/* fix for dropdown selectbox - options were dark text on dark background */
+div[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+}
+
+div[data-baseweb="select"] span {
+    color: #111111 !important;
+}
+
+div[data-baseweb="popover"] * {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+}
+
+div[data-baseweb="menu"] {
+    background-color: #ffffff !important;
+}
+
+div[data-baseweb="menu"] li {
+    color: #111111 !important;
+    background-color: #ffffff !important;
+}
+
+div[data-baseweb="menu"] li:hover {
+    background-color: #f0f4f8 !important;
+    color: #111111 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,9 +170,10 @@ def calculate_aqi(pm25):
     return 500
 
 # per city caps to stop api spike value from giving wrong aqi
+# London changed from 30 to 60 — old value was too aggressive and caused it to show AQI of 3
 CITY_PM25_CAPS = {
     "Shimla": 35, "Manali": 30, "Leh": 25, "Gangtok": 30, "Aizawl": 30,
-    "London": 30, "Tokyo": 35, "New York": 25, "Paris": 30, "Sydney": 20,
+    "London": 60, "Tokyo": 35, "New York": 25, "Paris": 30, "Sydney": 20,
     "Bangalore": 60, "Chennai": 65, "Kochi": 50, "Pune": 70, "Hyderabad": 70,
 }
 
@@ -152,7 +182,7 @@ EXPECTED_FEATURES = [
     "temp_c","humidity","windspeed_kph","pressure_mb",
 ]
 
-#Section 5a converted city name to Lat Lon using geocoding API
+# Section 5a converted city name to Lat Lon using geocoding API
 # added this so there would be no need to type Lon and Lat manually
 def get_coordinates(city_name):
     api_key = st.secrets["OPENWEATHER_API_KEY"]
@@ -204,7 +234,7 @@ with st.sidebar:
     - Linear Regression
 
     **How it works:**
-    1. Enter your location coordinates, that are longitude and latitude 
+    1. Select a city from the dropdown or type manually
     2. App fetches last 24 hours of air quality data
     3. LSTM model predicts next hour AQI
     4. You also get a 24-hour forecast
@@ -289,16 +319,74 @@ st.plotly_chart(fig_bar, use_container_width=True)
 
 st.markdown("---")
 
-# Section 10 City name search box
+# Section 10 City dropdown + manual type option
+# dropdown has all 115 trained cities, user can also type manually if city not in list
 st.markdown("### Get Live AQI Prediction")
-st.markdown("<p style='color:#666;font-size:0.9rem;'>Type a city name below and click predict</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#666;font-size:0.9rem;'>Select a city from the dropdown or type manually</p>", unsafe_allow_html=True)
+
+CITY_LIST = [
+    "-- Type a city manually --",
+    # North India
+    "Delhi", "Chandigarh", "Jaipur", "Lucknow", "Kanpur", "Agra",
+    "Varanasi", "Amritsar", "Meerut", "Ghaziabad", "Allahabad",
+    "Bareilly", "Moradabad", "Gorakhpur", "Mathura",
+    # Punjab & Haryana
+    "Ludhiana", "Jalandhar", "Patiala", "Gurugram", "Faridabad",
+    "Ambala", "Hisar",
+    # Rajasthan
+    "Jodhpur", "Udaipur", "Kota", "Ajmer", "Bikaner",
+    # Uttarakhand
+    "Dehradun", "Haridwar", "Roorkee",
+    # Himachal Pradesh
+    "Shimla", "Manali", "Dharamshala", "Solan", "Mandi",
+    # Jammu & Kashmir & Ladakh
+    "Srinagar", "Jammu", "Anantnag", "Baramulla", "Leh",
+    # Gujarat
+    "Ahmedabad", "Surat", "Rajkot", "Vadodara", "Bhavnagar",
+    "Gandhinagar", "Jamnagar",
+    # Maharashtra
+    "Mumbai", "Pune", "Nashik", "Aurangabad", "Nagpur",
+    "Solapur", "Kolhapur", "Thane",
+    # Goa
+    "Panaji", "Margao",
+    # Karnataka
+    "Bangalore", "Mysore", "Mangalore", "Hubli", "Belgaum",
+    # Tamil Nadu
+    "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli",
+    # Andhra Pradesh
+    "Visakhapatnam", "Vijayawada", "Tirupati", "Guntur", "Nellore",
+    # Telangana
+    "Hyderabad", "Warangal", "Nizamabad",
+    # Kerala
+    "Kochi", "Thiruvananthapuram", "Kozhikode", "Thrissur", "Kollam",
+    # West Bengal
+    "Kolkata", "Howrah", "Siliguri", "Durgapur", "Asansol",
+    # Odisha
+    "Bhubaneswar", "Cuttack", "Rourkela", "Sambalpur",
+    # Bihar
+    "Patna", "Gaya", "Muzaffarpur", "Bhagalpur",
+    # Jharkhand
+    "Ranchi", "Jamshedpur", "Dhanbad", "Bokaro",
+    # Central India
+    "Bhopal", "Indore", "Gwalior", "Jabalpur", "Ujjain", "Raipur",
+    # Northeast India
+    "Guwahati", "Shillong", "Imphal", "Agartala", "Dibrugarh", "Silchar",
+    # Hill stations
+    "Gangtok", "Aizawl",
+]
 
 c1, c2 = st.columns([2, 1])
 with c1:
-    city_input = st.text_input(
-        "City Name",
-        placeholder="try Delhi, Mumbai, London, Tokyo ..."
-    )
+    selected = st.selectbox("Select City", CITY_LIST)
+    # show text box only if user picks the manual option
+    if selected == "-- Type a city manually --":
+        city_input = st.text_input(
+            "Type city name",
+            placeholder="e.g. Kishtwar, Hapur, Noida ..."
+        )
+    else:
+        city_input = selected
+
 with c2:
     st.markdown("<br>", unsafe_allow_html=True)
     run = st.button("Predict AQI", use_container_width=True)
@@ -326,7 +414,6 @@ def fetch_last_24_hours(lat, lon):
     pollution_list = pollution_list[-24:]
 
     # fetched current weather for temperature, humidity, wind and pressure
-
     w = requests.get(
         f"https://api.openweathermap.org/data/2.5/weather"
         f"?lat={lat}&lon={lon}&appid={api_key}&units=metric",
@@ -352,15 +439,23 @@ def fetch_last_24_hours(lat, lon):
 
     live_df = pd.DataFrame(rows)[EXPECTED_FEATURES + ["aqi_index"]]
 
+    # using partial match so "New Delhi" correctly matches "Delhi" in the dict
+    # old code used exact match so caps were never applied for many cities
+    pm25_cap = 150
+    for cap_city, cap_val in CITY_PM25_CAPS.items():
+        if cap_city.lower() in city.lower() or city.lower() in cap_city.lower():
+            pm25_cap = cap_val
+            break
 
-    # applied PM2.5 cap for the detected city to fix any api spikes
-    pm25_cap = CITY_PM25_CAPS.get(city, 150)
-    live_df["pm2_5"] = live_df["pm2_5"].clip(upper=pm25_cap)
+    # hard global cap — no Indian city realistically has PM2.5 above 250
+    # this stops small towns like Kishtwar from getting garbage API values
+    live_df["pm2_5"] = live_df["pm2_5"].clip(upper=min(pm25_cap, 250))
     live_df["aqi_index"] = live_df["pm2_5"].apply(calculate_aqi)
+
     return live_df, city, {"temp": temp, "humidity": humidity, "windspeed": windspeed, "pressure": pressure}
 
 # Section 12 function to generate 24 hrs rolling forecast
-# feeded lstm prediction back into the window step y step for 24 hrs
+# feeded lstm prediction back into the window step by step for 24 hrs
 def forecast_next_24_hours(model, scaler, live_df):
     predictions = []; window = live_df.copy()
     for _ in range(24):
@@ -372,11 +467,11 @@ def forecast_next_24_hours(model, scaler, live_df):
         window  = pd.concat([window.iloc[1:], pd.DataFrame([new_row])], ignore_index=True)
     return predictions
 
-# Section 13 run prediction when button is clicked 
+# Section 13 run prediction when button is clicked
 if run:
-    # first checks if user actually typed something
+    # first checks if user actually typed something or selected manual but left it empty
     if not city_input.strip():
-        st.warning("Please type a city name first.")
+        st.warning("Please select a city or type a city name first.")
         st.stop()
     try:
         # step 1 - get coordinates from city name
@@ -390,7 +485,6 @@ if run:
             live_df, city, wx = fetch_last_24_hours(lat, lon)
 
         st.markdown(f"### Results for **{city}**")
-
 
         # Section 13a showing current weather cards
         st.markdown("#### Current Weather")
@@ -415,9 +509,44 @@ if run:
         pred_scaled = lstm_model.predict(np.expand_dims(scaled_data, axis=0), verbose=0)[0, 0]
         lstm_pred   = float(np.clip(inverse_aqi(np.array([pred_scaled]))[0], 0, 500))
 
+        # check if searched city is in our trained city list
+        # if not, show a warning so user knows prediction is an estimate
+        TRAINED_CITIES = [
+            "Delhi", "Chandigarh", "Jaipur", "Lucknow", "Kanpur", "Agra",
+            "Varanasi", "Amritsar", "Meerut", "Ghaziabad", "Allahabad",
+            "Bareilly", "Moradabad", "Gorakhpur", "Mathura", "Ludhiana",
+            "Jalandhar", "Patiala", "Gurugram", "Faridabad", "Ambala", "Hisar",
+            "Jodhpur", "Udaipur", "Kota", "Ajmer", "Bikaner", "Dehradun",
+            "Haridwar", "Roorkee", "Shimla", "Manali", "Dharamshala", "Solan",
+            "Mandi", "Srinagar", "Jammu", "Anantnag", "Baramulla", "Leh",
+            "Ahmedabad", "Surat", "Rajkot", "Vadodara", "Bhavnagar",
+            "Gandhinagar", "Jamnagar", "Mumbai", "Pune", "Nashik", "Aurangabad",
+            "Nagpur", "Solapur", "Kolhapur", "Thane", "Panaji", "Margao",
+            "Bangalore", "Mysore", "Mangalore", "Hubli", "Belgaum", "Chennai",
+            "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli",
+            "Visakhapatnam", "Vijayawada", "Tirupati", "Guntur", "Nellore",
+            "Hyderabad", "Warangal", "Nizamabad", "Kochi", "Thiruvananthapuram",
+            "Kozhikode", "Thrissur", "Kollam", "Kolkata", "Howrah", "Siliguri",
+            "Durgapur", "Asansol", "Bhubaneswar", "Cuttack", "Rourkela",
+            "Sambalpur", "Patna", "Gaya", "Muzaffarpur", "Bhagalpur", "Ranchi",
+            "Jamshedpur", "Dhanbad", "Bokaro", "Bhopal", "Indore", "Gwalior",
+            "Jabalpur", "Ujjain", "Raipur", "Guwahati", "Shillong", "Imphal",
+            "Agartala", "Dibrugarh", "Silchar", "Gangtok", "Aizawl",
+        ]
+        # check if city is in trained list using partial match
+        is_trained = any(
+            t.lower() in city.lower() or city.lower() in t.lower()
+            for t in TRAINED_CITIES
+        )
+        if not is_trained:
+            st.warning(
+                f"⚠️ **{city}** is not in the training data. "
+                f"Prediction is an estimate based on similar pollution patterns. "
+                f"Accuracy may be lower than for trained cities."
+            )
+
         cat, clr, bg = get_aqi_category(lstm_pred)
 
-        
         st.markdown("#### Predicted AQI (Next Hour)")
         r1, r2 = st.columns([1, 1.5])
 
@@ -489,7 +618,7 @@ if run:
         )
         st.plotly_chart(fig_poll, use_container_width=True)
 
-        # Dominant pollutant; that means showing which pollutant is highest and what it likely means
+        # Dominant pollutant info
         dominant = max(poll_vals, key=poll_vals.get)
         insights = {
             "PM2.5": "Fine dust particles — likely from traffic or burning.",
@@ -580,9 +709,9 @@ if run:
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
-        st.caption("Make sure your coordinates are correct and your API key is valid.")
+        st.caption("Make sure your API key is valid and the city name is correct.")
 
-# this is footer section sowing how this works explanation
+# this is footer section showing how this works explanation
 st.markdown("---")
 st.markdown("### How This Works")
 
@@ -591,7 +720,7 @@ with col1:
     st.markdown("""
     **Data Collection**
     
-    Air quality data collected from OpenWeatherMap across 40+ cities in India and worldwide. Features include PM2.5, PM10, NO2, SO2, O3, CO and weather variables.
+    Air quality data collected from OpenWeatherMap across 115 cities across India. Features include PM2.5, PM10, NO2, SO2, O3, CO and weather variables.
     """)
 with col2:
     st.markdown("""

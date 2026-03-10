@@ -2,12 +2,20 @@ venv/
 __pycache__/
 *.pyc
 .streamlit/secrets.toml
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+models/
+training_data.csv
+results_lstm.png
 
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
 
 # C extensions
 *.so
