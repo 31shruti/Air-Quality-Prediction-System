@@ -298,7 +298,7 @@ st.markdown("---")
 st.markdown("### How well do the models perform?")
 metrics_df = pd.DataFrame(metrics).T.reset_index().rename(columns={"index": "Model"})
 col1, col2, col3, col4 = st.columns(4)
-icons  = {"Persistence": "⏱", "Linear Regression": "📈", "Random Forest": "🌲", "LSTM": "🧠"}
+icons  = {"Persistence": "", "Linear Regression": "", "Random Forest": "", "LSTM": ""}
 colors = {"Persistence": "#aaaaaa", "Linear Regression": "#4cc9f0", "Random Forest": "#4361ee", "LSTM": "#7209b7"}
 
 for col, (_, row) in zip([col1, col2, col3, col4], metrics_df.iterrows()):
