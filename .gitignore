@@ -6,7 +6,6 @@ __pycache__/
 .streamlit/secrets.toml
 __pycache__/
 *.pyc
-models/
 training_data.csv
 results_lstm.png
 
